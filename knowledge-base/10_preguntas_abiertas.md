@@ -25,7 +25,7 @@
 | P-03 | (a) factura ARCA real en homologación en v1 | ✅ Respondida — ver DD-09 |
 | P-04 | (c) convenio ficticio propio para la demo, 1 real como segunda iteración | ✅ Respondida — ver seed en `04_modelo_de_datos.md` |
 | P-05 | (a)/(b) ambas aceptables; default demo local, decisión final pendiente de constraints de entrega | 🟡 Parcialmente abierta |
-| P-06 | (a) FastAPI + SPA + PostgreSQL | ✅ Respondida — ver DD-07 |
+| P-06 | (a) FastAPI + SPA + PostgreSQL, refinada 2026-10-13 a stack exacto (DD-07a–DD-07e) | ✅ Respondida — ver DD-07 |
 | P-07 | Confirmada por implicación (stack web elegido ⇒ `web_app`) | ✅ Cerrada |
 | P-08 | Confirmada por P-01(b) (`public_multi_user`; multi-tenant posterior) | ✅ Cerrada |
 
@@ -38,7 +38,7 @@
 | Alta | P-03 ✅ Respondida (a: ARCA homologación en v1 — DD-09) | US-031, arquitectura fiscal | Equipo |
 | Alta | P-04 ✅ Respondida (c: convenio ficticio "OS Demo" — DD-11) | Seed data, RN-OS-01 | Equipo |
 | Alta | P-05 ¿Hospedaje en nube con costo o demo local para la entrega? | Despliegue, env vars | Cátedra / equipo |
-| Alta | P-06 ✅ Respondida ((a) FastAPI + SPA + PostgreSQL — DD-07) | Todo el roadmap técnico | Equipo |
+| Alta | P-06 ✅ Respondida ((a) FastAPI + SPA + PostgreSQL, refinada a stack exacto DD-07a–DD-07e) | Todo el roadmap técnico | Equipo |
 | Media | P-07 **[DISCOVERY]** `system_type` asumido `web_app` SaaS: ¿se confirma frente a app móvil nativa o desktop? Recomendación: sí, web_app (16/18 competidores). | 02, 08 | Equipo |
 | Media | P-08 **[DISCOVERY]** `scale` asumido `public_multi_user` (equipo clínico + reserva pública; multi-tenant posterior): ¿se confirma? | 03, 04 | Equipo |
 | Media | P-09 Verificar con demo los 5 competidores priorizados y confirmar precios/condiciones vigentes | Pricing (DD-06) | Equipo |

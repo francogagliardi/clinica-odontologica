@@ -35,11 +35,37 @@
 **Contexto**: 9 de 12 regionales no publican precios; los que sí (Odontias, DenPro, AgendaPro, Doctoralia) validan el modelo.
 **Trade-offs**: cifras volátiles; requieren revisión antes de fijar pricing (verificación H13–H14 pendiente con demo).
 
-### DD-07 — Stack v1: FastAPI + SPA + PostgreSQL
-**Decisión**: backend Python FastAPI (API REST), frontend SPA web responsive, PostgreSQL.
+### DD-07 — Stack v1: FastAPI + SPA + PostgreSQL [REFINADA 2026-10-13 — ver DD-07a–DD-07e]
+**Decisión original**: backend Python FastAPI (API REST), frontend SPA web responsive, PostgreSQL.
 **Contexto**: respuesta P-06 (opción a, sin requisito de cátedra en otro sentido).
+**Estado**: REFINADA el 2026-10-13 por stack exacto del usuario; el contenido normativo pasa a DD-07a–DD-07e. Se conserva por trazabilidad; no usar su formulación genérica ("SPA") para decisiones nuevas.
 **Alternativas consideradas**: Node/Nest + React + PostgreSQL; Laravel + MySQL — descartadas por simplicidad del MVP e integración directa con clientes REST/SOAP.
 **Trade-offs aceptados**: equipo debe manejar ecosistema Python para los clientes ARCA (SOAP) y MP.
+
+### DD-07a — Backend v1: Python + FastAPI + SQLAlchemy + PostgreSQL (2026-10-13)
+**Decisión**: API REST en Python con FastAPI; ORM SQLAlchemy (2.x); PostgreSQL como única persistencia de dominio.
+**Contexto**: stack exacto definido por el usuario; refina DD-07.
+**Trade-offs aceptados**: el equipo asume migraciones (Alembic) y modelado ORM de las 14 entidades de `04_modelo_de_datos.md`.
+
+### DD-07b — Autenticación v1: JWT Bearer (2026-10-13)
+**Decisión**: backoffice con JWT Bearer (access token corto, firma `JWT_SECRET`); rutas públicas con token opaco de un solo uso con vencimiento (RN-NO-03), no con JWT de sesión.
+**Contexto**: stack exacto definido por el usuario; flujo detallado en `08_arquitectura_propuesta.md`.
+**Trade-offs aceptados**: manejo de expiración/renovación en la SPA; tokens revocables solo vía expiración corta en v1.
+
+### DD-07c — Async v1: Redis para colas y jobs en segundo plano (2026-10-13)
+**Decisión**: Redis como broker/colas exclusivamente para (a) recordatorios/notificaciones programadas 48/24 h, (b) envío WhatsApp con reintentos, (c) jobs en segundo plano (conciliación MP diferida, ofertas de lista de espera, reportes pesados). Nunca como persistencia primaria.
+**Contexto**: stack exacto definido por el usuario; topología en `08_arquitectura_propuesta.md`, operación en `11_integraciones_argentinas.md`.
+**Trade-offs aceptados**: un servicio más en Compose (redis); workers a operar en demo local.
+
+### DD-07d — Frontend v1: React + TypeScript + Vite SPA (2026-10-13)
+**Decisión**: SPA en React + TypeScript construida con Vite (backoffice + reserva pública responsive).
+**Contexto**: stack exacto definido por el usuario; refina el genérico "SPA" de DD-07.
+**Trade-offs aceptados**: build Vite a servir como servicio `frontend` en Compose.
+
+### DD-07e — Contenedores v1: Docker / Docker Compose con api, frontend, db, redis (2026-10-13)
+**Decisión**: entrega demo local contenerizada con Compose y servicios mínimos `api`, `frontend`, `db` (PostgreSQL), `redis`; webhooks vía túnel.
+**Contexto**: stack exacto definido por el usuario; coherente con DD-12 (default demo local).
+**Trade-offs aceptados**: el equipo mantiene `Dockerfile`s y `docker-compose.yml` desde el día uno.
 
 ### DD-08 — Alcance v1: independiente + clínica multi-profesional (confirma SU-02)
 **Decisión**: el MVP sirve a ambos segmentos desde el día uno; multisucursal queda posterior (US-054).
@@ -68,7 +94,7 @@
 
 ## Supuestos inferidos
 
-### SU-01 — [CERRADO por P-06] Stack decidido: FastAPI + SPA + PostgreSQL (DD-07).
+### SU-01 — [CERRADO por P-06, REFINADO 2026-10-13] Stack exacto: Python + FastAPI + JWT + SQLAlchemy + PostgreSQL + Redis + Docker/Compose + React + TS + Vite (DD-07a–DD-07e).
 
 ### SU-02 — [CONFIRMADO por P-01] v1 cubre independiente + clínica pequeña multi-profesional
 **Origen**: checklist Discovery + respuesta P-01(b). Ver DD-08. Ya no es supuesto: es alcance decidido.

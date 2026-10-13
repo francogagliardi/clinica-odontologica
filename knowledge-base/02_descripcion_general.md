@@ -2,13 +2,17 @@
 
 ## Stack tecnológico
 
-> **Decisión DD-07 (2026-10-13, respuesta P-06)**: FastAPI (backend) + SPA web responsive (frontend) + PostgreSQL. Sin requisito de cátedra en otro sentido.
+> **Decisión DD-07 (2026-10-13, respuesta P-06; refinada 2026-10-13 a stack exacto DD-07a–DD-07e)**: backend Python + FastAPI (JWT, SQLAlchemy, PostgreSQL, Redis) + frontend React + TypeScript + Vite (SPA) + Docker / Docker Compose. Sin requisito de cátedra en otro sentido.
 
 | Capa | Tecnología decidida | Versión mínima |
 |---|---|---|
-| Frontend | SPA web responsive | — |
-| Backend | Python FastAPI (API REST) | FastAPI vigente |
+| Frontend | React + TypeScript + Vite (SPA web responsive) | Vite vigente |
+| Backend | Python + FastAPI (API REST) | FastAPI vigente |
+| Autenticación | JWT (Bearer para backoffice; tokens de un solo uso con vencimiento para enlaces públicos) | — |
+| ORM | SQLAlchemy | SQLAlchemy 2.x |
 | Base de datos | PostgreSQL con respaldo cifrado | PostgreSQL vigente |
+| Async / jobs | Redis (cola de recordatorios/notificaciones, envío WhatsApp, jobs en segundo plano) | Redis vigente |
+| Contenedores | Docker / Docker Compose (servicios: api, frontend, db, redis como mínimo) | Docker vigente |
 | Mensajería | WhatsApp Business API oficial (Meta) | API vigente Meta |
 | Pagos | Mercado Pago SDK/API (modo sandbox en v1) | API vigente MP |
 | Facturación | Web services ARCA (ex AFIP, ambiente de homologación en v1) | WS vigentes ARCA |
@@ -21,10 +25,10 @@ SaaS web multi-usuario en nube (modelo validado por 16 de 18 competidores releva
 ```
 Paciente (enlace reserva / WhatsApp)
         ↕
-Frontend web responsive ──→ API REST ──→ Base de datos relacional
-        ↕                    ↕
-Recepción / Odontólogo   Integraciones: WhatsApp Business API,
-clínica (backoffice)     Mercado Pago, ARCA, (deseable) PUCO
+Frontend React + TypeScript + Vite ──→ API REST (FastAPI) ──→ PostgreSQL (vía SQLAlchemy)
+        ↕                    ↕                         ↕
+Recepción / Odontólogo   Integraciones: WhatsApp Business API,   Redis: cola de recordatorios,
+clínica (backoffice)     Mercado Pago, ARCA, (deseable) PUCO     envíos WhatsApp, jobs en 2.º plano
 ```
 
 Justificación de alto nivel: un único backend centraliza agenda (anti-solapamiento transaccional), historia clínica y caja, evitando la doble carga que el informe identifica como problema; los tres integradores obligatorios (WhatsApp, MP, ARCA) son los que distinguen al líder DentalCore (4,63) del resto.

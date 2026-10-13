@@ -1,6 +1,6 @@
 ﻿{
     "owner":  "active-orchestrator",
-    "step":  "kb",
+    "step": "kb",
     "version":  4,
     "discovery":  {
                       "created_by":  "discovery-research",
@@ -194,11 +194,19 @@
                "source":  "ingest",
                "created_by":  "kb-creator",
                "discovery":  {
-                                 "stack":  [
-                                               "FastAPI",
-                                               "SPA",
-                                               "PostgreSQL"
-                                           ],
+                                  "stack":  [
+                                                "Python",
+                                                "FastAPI",
+                                                "JWT",
+                                                "SQLAlchemy",
+                                                "PostgreSQL",
+                                                "Redis",
+                                                "Docker",
+                                                "Docker Compose",
+                                                "React",
+                                                "TypeScript",
+                                                "Vite"
+                                            ],
                                  "domain":  "salud_odontologica (dental practice management)",
                                  "system_type":  "web_app",
                                  "problem":  "Consultorios y clinicas odontologicas argentinas gestionan turnos por WhatsApp manual/papel/planillas: dobles reservas, ausentismo sin recupero, confirmaciones manuales y facturacion a obras sociales con debitos evitables. Falta un sistema centralizado de agenda + historia clinica odontologica + administracion adaptada a Argentina (obras sociales, ARCA, Mercado Pago, WhatsApp).",
