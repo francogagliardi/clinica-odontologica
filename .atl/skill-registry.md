@@ -8,12 +8,12 @@ See `_shared/skill-resolver.md` for the full resolution protocol.
 
 | Trigger | Skill | Path |
 |---------|-------|------|
-| Writing, reviewing, or refactoring React/Next.js code; React components, Next.js pages, data fetching, bundle optimization, performance improvements | vercel-react-best-practices | C:\Users\Franco Gagliardi\.agents\skills\vercel-react-best-practices\SKILL.md |
-| BEFORE writing or changing anything in Postgres (tables, columns, schema, migrations, RLS, indexes, triggers, functions, cron/queues, pgvector, restores); diagnosing slow queries, high CPU, timeouts, EXPLAIN plans, connection exhaustion, locking, bloat, row-visibility leaks | supabase-postgres-best-practices | C:\Users\Franco Gagliardi\.agents\skills\supabase-postgres-best-practices\SKILL.md |
-| Building features or fixing bugs test-first; "red-green-refactor"; integration tests | tdd | C:\Users\Franco Gagliardi\.agents\skills\tdd\SKILL.md |
-| Implementing auth systems, securing APIs, OAuth2/social login, RBAC, session management, SSO/multi-tenancy, debugging auth issues | auth-implementation-patterns | C:\Users\Franco Gagliardi\.agents\skills\auth-implementation-patterns\SKILL.md |
-| FastAPI/Python backend work: APIs, async operations, routers, Pydantic schemas, SQLAlchemy, background workers | fastapi-python | C:\Users\Franco Gagliardi\.agents\skills\fastapi-python\SKILL.md |
-| Creating or reviewing Dockerfiles/Compose services, container security, networking, volumes, multi-service orchestration, installer harnesses | docker-patterns | C:\Users\Franco Gagliardi\.agents\skills\docker-patterns\SKILL.md |
+| Writing, reviewing, or refactoring React/Next.js code; React components, Next.js pages, data fetching, bundle optimization, performance improvements | vercel-react-best-practices | .agents/skills/vercel-react-best-practices/SKILL.md |
+| BEFORE writing or changing anything in Postgres (tables, columns, schema, migrations, RLS, indexes, triggers, functions, cron/queues, pgvector, restores); diagnosing slow queries, high CPU, timeouts, EXPLAIN plans, connection exhaustion, locking, bloat, row-visibility leaks | supabase-postgres-best-practices | .agents/skills/supabase-postgres-best-practices/SKILL.md |
+| Building features or fixing bugs test-first; "red-green-refactor"; integration tests | tdd | .agents/skills/tdd/SKILL.md |
+| Implementing auth systems, securing APIs, OAuth2/social login, RBAC, session management, SSO/multi-tenancy, debugging auth issues | auth-implementation-patterns | .agents/skills/auth-implementation-patterns/SKILL.md |
+| FastAPI/Python backend work: APIs, async operations, routers, Pydantic schemas, SQLAlchemy, background workers | fastapi-python | .agents/skills/fastapi-python/SKILL.md |
+| Creating or reviewing Dockerfiles/Compose services, container security, networking, volumes, multi-service orchestration, installer harnesses | docker-patterns | .agents/skills/docker-patterns/SKILL.md |
 
 ## Compact Rules
 

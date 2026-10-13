@@ -65,7 +65,7 @@ Fuente de verdad: `.atl/skill-registry.md` (generado por `skill-registry`). 6 sk
 
 Cargá la skill correspondiente al contexto ANTES de escribir código. Nota: `vercel-react-best-practices` trae reglas Next.js/RSC que NO aplican a esta SPA Vite — aplicar solo cliente/bundle/re-render.
 
-> Los compact rules de cada skill los resuelve el orquestador desde `.atl/skill-registry.md` (generado por `skill-registry`; no versionado — no está en el repo). Esta tabla solo mapea skill→rol.
+> Los compact rules de cada skill los resuelve el orquestador desde `.atl/skill-registry.md` (versionado en el repo; skills en `.agents/skills/`). Esta tabla solo mapea skill→rol.
 
 ---
 

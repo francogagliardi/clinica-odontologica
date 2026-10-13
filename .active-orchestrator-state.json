@@ -327,32 +327,32 @@
             {
                 "name": "vercel-react-best-practices",
                 "trigger": "React components, Next.js pages, data fetching, bundle optimization, performance improvements",
-                "path": "C:\\Users\\Franco Gagliardi\\.agents\\skills\\vercel-react-best-practices\\SKILL.md"
+                "path": ".agents/skills/vercel-react-best-practices/SKILL.md"
             },
             {
                 "name": "supabase-postgres-best-practices",
                 "trigger": "Before any Postgres schema/migration/RLS/query change; slow-query diagnosis",
-                "path": "C:\\Users\\Franco Gagliardi\\.agents\\skills\\supabase-postgres-best-practices\\SKILL.md"
+                "path": ".agents/skills/supabase-postgres-best-practices/SKILL.md"
             },
             {
                 "name": "tdd",
                 "trigger": "Test-first features/bugfixes, red-green-refactor, integration tests",
-                "path": "C:\\Users\\Franco Gagliardi\\.agents\\skills\\tdd\\SKILL.md"
+                "path": ".agents/skills/tdd/SKILL.md"
             },
             {
                 "name": "auth-implementation-patterns",
                 "trigger": "Auth systems, API security, OAuth2, RBAC, sessions, SSO",
-                "path": "C:\\Users\\Franco Gagliardi\\.agents\\skills\\auth-implementation-patterns\\SKILL.md"
+                "path": ".agents/skills/auth-implementation-patterns/SKILL.md"
             },
             {
                 "name": "fastapi-python",
                 "trigger": "FastAPI/Python APIs, async operations, routers, Pydantic, SQLAlchemy",
-                "path": "C:\\Users\\Franco Gagliardi\\.agents\\skills\\fastapi-python\\SKILL.md"
+                "path": ".agents/skills/fastapi-python/SKILL.md"
             },
             {
                 "name": "docker-patterns",
                 "trigger": "Dockerfiles/Compose, container security, networking, volumes, orchestration",
-                "path": "C:\\Users\\Franco Gagliardi\\.agents\\skills\\docker-patterns\\SKILL.md"
+                "path": ".agents/skills/docker-patterns/SKILL.md"
             }
         ],
         "conventions": [],
