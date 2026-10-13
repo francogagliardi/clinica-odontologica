@@ -1,217 +1,361 @@
 ﻿{
-    "owner":  "active-orchestrator",
-    "step": "kb",
-    "version":  4,
-    "discovery":  {
-                      "created_by":  "discovery-research",
-                      "sources_fetched_at":  "2026-10-13",
-                      "sources":  [
-                                      "https://dentalcore.app/",
-                                      "https://www.dentalist.com.ar/",
-                                      "https://dentalcorsoftware.com.ar/",
-                                      "https://flap.com.ar/odontologos",
-                                      "https://odontoly.com/",
-                                      "https://odontias.com.ar/",
-                                      "https://www.denteo.com.ar/",
-                                      "https://www.clinia.com.ar/odontologia",
-                                      "https://web.dentaltec.com.ar/software-odontologos-argentina",
-                                      "https://www.denpro.ar/",
-                                      "https://benty.com.ar/",
-                                      "https://agendapro.com/ar/planes",
-                                      "https://www.softwaredentalink.com/es/planes",
-                                      "https://www.dentidesk.com/",
-                                      "https://pro.doctoralia.com/ar/precio",
-                                      "https://reservo.cl/homepage/ar/dental/",
-                                      "https://tab32.com/pricing/",
-                                      "https://opendental.com/site/fees.html"
-                                  ],
-                      "competitors":  [
-                                          {
-                                              "name":  "DentalCore",
-                                              "notes_file":  "docs/discovery/informe-discovery.md"
-                                          },
-                                          {
-                                              "name":  "Reservo",
-                                              "notes_file":  "docs/discovery/informe-discovery.md"
-                                          },
-                                          {
-                                              "name":  "Benty",
-                                              "notes_file":  "docs/discovery/informe-discovery.md"
-                                          },
-                                          {
-                                              "name":  "OdontoClinIA",
-                                              "notes_file":  "docs/discovery/informe-discovery.md"
-                                          },
-                                          {
-                                              "name":  "DentalTec",
-                                              "notes_file":  "docs/discovery/informe-discovery.md"
-                                          },
-                                          {
-                                              "name":  "Dentalist",
-                                              "notes_file":  "docs/discovery/informe-discovery.md"
-                                          },
-                                          {
-                                              "name":  "FLAP",
-                                              "notes_file":  "docs/discovery/informe-discovery.md"
-                                          },
-                                          {
-                                              "name":  "DentalCor",
-                                              "notes_file":  "docs/discovery/informe-discovery.md"
-                                          },
-                                          {
-                                              "name":  "Denteo",
-                                              "notes_file":  "docs/discovery/informe-discovery.md"
-                                          },
-                                          {
-                                              "name":  "Odontias",
-                                              "notes_file":  "docs/discovery/informe-discovery.md"
-                                          },
-                                          {
-                                              "name":  "DenPro",
-                                              "notes_file":  "docs/discovery/informe-discovery.md"
-                                          },
-                                          {
-                                              "name":  "Odontoly",
-                                              "notes_file":  "docs/discovery/informe-discovery.md"
-                                          },
-                                          {
-                                              "name":  "AgendaPro",
-                                              "notes_file":  "docs/discovery/informe-discovery.md"
-                                          },
-                                          {
-                                              "name":  "Dentalink",
-                                              "notes_file":  "docs/discovery/informe-discovery.md"
-                                          },
-                                          {
-                                              "name":  "Dentidesk",
-                                              "notes_file":  "docs/discovery/informe-discovery.md"
-                                          },
-                                          {
-                                              "name":  "Doctoralia PRO",
-                                              "notes_file":  "docs/discovery/informe-discovery.md"
-                                          },
-                                          {
-                                              "name":  "tab32",
-                                              "notes_file":  "docs/discovery/informe-discovery.md"
-                                          },
-                                          {
-                                              "name":  "Open Dental",
-                                              "notes_file":  "docs/discovery/informe-discovery.md"
-                                          }
-                                      ],
-                      "problema":  "Consultorios y clÃ­nicas odontolÃ³gicas argentinas gestionan turnos por WhatsApp manual/papel/planillas: dobles reservas, ausentismo sin recupero, confirmaciones manuales y facturaciÃ³n a obras sociales con dÃ©bitos evitables. Falta un sistema centralizado de agenda + historia clÃ­nica odontolÃ³gica + administraciÃ³n adaptada a Argentina (obras sociales, ARCA, Mercado Pago, WhatsApp).",
-                      "usuarios":  [
-                                       "OdontÃ³logo independiente: agenda propia, historia clÃ­nica, presupuestos y cobro directo",
-                                       "Recepcionista/administrativo: carga y confirma turnos, caja, seÃ±as y facturaciÃ³n",
-                                       "Administrador de clÃ­nica: mÃºltiples profesionales, sillones, sucursales, liquidaciones y reportes",
-                                       "Paciente: reserva online 24/7, confirma/cancela/reprograma, paga seÃ±as, accede a presupuestos",
-                                       "Roles secundarios: asistente, laboratorio, auditor/obra social"
-                                   ],
-                      "casos_de_uso":  [
-                                           "Como paciente, quiero reservar un turno online 24/7 para no depender del horario de recepciÃ³n",
-                                           "Como recepcionista, quiero ver la agenda por profesional y sillÃ³n con bloqueos y sobreturnos para evitar solapamientos",
-                                           "Como paciente, quiero confirmar/cancelar/reprogramar desde el recordatorio para liberar el horario a tiempo",
-                                           "Como odontÃ³logo, quiero registrar la atenciÃ³n con odontograma y generar el presupuesto en la misma consulta",
-                                           "Como administrador, quiero cobrar (MP/seÃ±a), facturar (ARCA/obras sociales) y liquidar sin doble carga",
-                                           "Como administrador, quiero recuperar ausentes e inactivos con recordatorios y campaÃ±as automÃ¡ticas"
-                                       ],
-                      "funcionalidades_necesarias":  [
-                                                         "Reserva online 24/7 con enlace",
-                                                         "Agenda multi-profesional/multi-sillÃ³n con duraciones variables, bloqueos, sobreturnos y anti-solapamiento",
-                                                         "ConfirmaciÃ³n/cancelaciÃ³n/reprogramaciÃ³n y recordatorios por WhatsApp",
-                                                         "Lista de espera",
-                                                         "Ficha clÃ­nica con odontograma FDI y presupuestos/planes de tratamiento",
-                                                         "Caja, cobros, seÃ±as con Mercado Pago y facturaciÃ³n ARCA",
-                                                         "Obras sociales bÃ¡sicas con validaciÃ³n",
-                                                         "Roles y permisos",
-                                                         "Reportes bÃ¡sicos"
-                                                     ],
-                      "funcionalidades_opcionales":  [
-                                                         "Periodontograma e imÃ¡genes/radiografÃ­as",
-                                                         "IA: agente de turnos, dictado, resumen clÃ­nico",
-                                                         "Portal/app del paciente",
-                                                         "CampaÃ±as y recupero de inactivos",
-                                                         "Multisucursal",
-                                                         "Laboratorio e inventario",
-                                                         "API pÃºblica e integraciones (Google Calendar, radiologÃ­a, marketing)",
-                                                         "Telemedicina",
-                                                         "Modo offline",
-                                                         "PlanificaciÃ³n 3D"
-                                                     ],
-                      "reglas_de_negocio":  [
-                                                "Sin turnos superpuestos por profesional/sillÃ³n",
-                                                "Duraciones variables por prestaciÃ³n",
-                                                "Plazo de cancelaciÃ³n configurable con liberaciÃ³n automÃ¡tica del horario",
-                                                "La cancelaciÃ³n tardÃ­a puede perder la seÃ±a",
-                                                "Lista de espera que ofrece el hueco liberado por orden",
-                                                "Cobertura/copago de obra social calculado antes de confirmar el plan",
-                                                "Todo cobro emite comprobante",
-                                                "Trazabilidad de quiÃ©n registrÃ³/quÃ©/cuÃ¡ndo"
-                                            ],
-                      "integraciones":  [
-                                            "Obligatorias v1: WhatsApp Business API oficial, Mercado Pago, facturaciÃ³n ARCA",
-                                            "Deseables: PUCO/verificaciÃ³n de cobertura, Google Calendar, sitio web propio",
-                                            "Futuras: API pÃºblica, radiologÃ­a/imÃ¡genes, firma digital avanzada, marketing/Meta Ads"
-                                        ],
-                      "restricciones":  [
-                                            "Proyecto universitario (MetodologÃ­a I): alcance acotado, sin presupuesto para licencias pagas de terceros en v1",
-                                            "Mercado objetivo Argentina: precios ARS, normativa local",
-                                            "Priorizar integraciones con capa gratuita o sandbox",
-                                            "MVP demostrable con datos ficticios"
-                                        ],
-                      "riesgos":  [
-                                      "Supuesto sin probar: que independientes paguen por software cuando WhatsApp + papel les alcanza",
-                                      "La mitad de la evidencia son afirmaciones comerciales sin auditorÃ­a independiente",
-                                      "9 de 12 proveedores regionales no publican precios: benchmark de pricing incompleto y volÃ¡til",
-                                      "WhatsApp Business API, ARCA y Mercado Pago dependen de aprobaciones y costos de terceros",
-                                      "NingÃºn competidor demuestra cumplimiento normativo de datos de salud: validar con asesoramiento legal",
-                                      "Origen de Dentiqa y detalle de DentalTec/Benty parcialmente no verificados en fuente oficial"
-                                  ],
-                      "preguntas_abiertas":  [
-                                                 "Â¿v1 solo independiente o tambiÃ©n clÃ­nica multi-profesional desde el dÃ­a uno?",
-                                                 "Â¿SeÃ±a obligatoria u opcional por prestaciÃ³n?",
-                                                 "Â¿FacturaciÃ³n ARCA real en v1 o comprobante interno?",
-                                                 "Â¿QuÃ© obra social/nomenclador para el caso de prueba del MVP?",
-                                                 "Â¿Hospedaje con costo o demo local para la entrega?",
-                                                 "Verificar con demo los 5 competidores priorizados antes de fijar pricing"
-                                             ]
-                  },
-    "kb":  {
-               "files":  [
-                             "knowledge-base/01_vision_y_objetivos.md",
-                             "knowledge-base/02_descripcion_general.md",
-                             "knowledge-base/03_actores_y_roles.md",
-                             "knowledge-base/04_modelo_de_datos.md",
-                             "knowledge-base/05_reglas_de_negocio.md",
-                             "knowledge-base/06_funcionalidades.md",
-                             "knowledge-base/07_flujos_principales.md",
-                             "knowledge-base/08_arquitectura_propuesta.md",
-                             "knowledge-base/09_decisiones_y_supuestos.md",
-                             "knowledge-base/10_preguntas_abiertas.md",
-                             "knowledge-base/11_integraciones_argentinas.md",
-                             "knowledge-base/README.md"
-                         ],
-               "source":  "ingest",
-               "created_by":  "kb-creator",
-               "discovery":  {
-                                  "stack":  [
-                                                "Python",
-                                                "FastAPI",
-                                                "JWT",
-                                                "SQLAlchemy",
-                                                "PostgreSQL",
-                                                "Redis",
-                                                "Docker",
-                                                "Docker Compose",
-                                                "React",
-                                                "TypeScript",
-                                                "Vite"
-                                            ],
-                                 "domain":  "salud_odontologica (dental practice management)",
-                                 "system_type":  "web_app",
-                                 "problem":  "Consultorios y clinicas odontologicas argentinas gestionan turnos por WhatsApp manual/papel/planillas: dobles reservas, ausentismo sin recupero, confirmaciones manuales y facturacion a obras sociales con debitos evitables. Falta un sistema centralizado de agenda + historia clinica odontologica + administracion adaptada a Argentina (obras sociales, ARCA, Mercado Pago, WhatsApp).",
-                                 "needs_infra":  true,
-                                 "scale":  "public_multi_user"
-                             }
-           }
+    "owner": "active-orchestrator",
+    "step": "registry",
+    "version": 4,
+    "discovery": {
+        "created_by": "discovery-research",
+        "sources_fetched_at": "2026-10-13",
+        "sources": [
+            "https://dentalcore.app/",
+            "https://www.dentalist.com.ar/",
+            "https://dentalcorsoftware.com.ar/",
+            "https://flap.com.ar/odontologos",
+            "https://odontoly.com/",
+            "https://odontias.com.ar/",
+            "https://www.denteo.com.ar/",
+            "https://www.clinia.com.ar/odontologia",
+            "https://web.dentaltec.com.ar/software-odontologos-argentina",
+            "https://www.denpro.ar/",
+            "https://benty.com.ar/",
+            "https://agendapro.com/ar/planes",
+            "https://www.softwaredentalink.com/es/planes",
+            "https://www.dentidesk.com/",
+            "https://pro.doctoralia.com/ar/precio",
+            "https://reservo.cl/homepage/ar/dental/",
+            "https://tab32.com/pricing/",
+            "https://opendental.com/site/fees.html"
+        ],
+        "competitors": [
+            {
+                "name": "DentalCore",
+                "notes_file": "docs/discovery/informe-discovery.md"
+            },
+            {
+                "name": "Reservo",
+                "notes_file": "docs/discovery/informe-discovery.md"
+            },
+            {
+                "name": "Benty",
+                "notes_file": "docs/discovery/informe-discovery.md"
+            },
+            {
+                "name": "OdontoClinIA",
+                "notes_file": "docs/discovery/informe-discovery.md"
+            },
+            {
+                "name": "DentalTec",
+                "notes_file": "docs/discovery/informe-discovery.md"
+            },
+            {
+                "name": "Dentalist",
+                "notes_file": "docs/discovery/informe-discovery.md"
+            },
+            {
+                "name": "FLAP",
+                "notes_file": "docs/discovery/informe-discovery.md"
+            },
+            {
+                "name": "DentalCor",
+                "notes_file": "docs/discovery/informe-discovery.md"
+            },
+            {
+                "name": "Denteo",
+                "notes_file": "docs/discovery/informe-discovery.md"
+            },
+            {
+                "name": "Odontias",
+                "notes_file": "docs/discovery/informe-discovery.md"
+            },
+            {
+                "name": "DenPro",
+                "notes_file": "docs/discovery/informe-discovery.md"
+            },
+            {
+                "name": "Odontoly",
+                "notes_file": "docs/discovery/informe-discovery.md"
+            },
+            {
+                "name": "AgendaPro",
+                "notes_file": "docs/discovery/informe-discovery.md"
+            },
+            {
+                "name": "Dentalink",
+                "notes_file": "docs/discovery/informe-discovery.md"
+            },
+            {
+                "name": "Dentidesk",
+                "notes_file": "docs/discovery/informe-discovery.md"
+            },
+            {
+                "name": "Doctoralia PRO",
+                "notes_file": "docs/discovery/informe-discovery.md"
+            },
+            {
+                "name": "tab32",
+                "notes_file": "docs/discovery/informe-discovery.md"
+            },
+            {
+                "name": "Open Dental",
+                "notes_file": "docs/discovery/informe-discovery.md"
+            }
+        ],
+        "problema": "Consultorios y clÃ­nicas odontolÃ³gicas argentinas gestionan turnos por WhatsApp manual/papel/planillas: dobles reservas, ausentismo sin recupero, confirmaciones manuales y facturaciÃ³n a obras sociales con dÃ©bitos evitables. Falta un sistema centralizado de agenda + historia clÃ­nica odontolÃ³gica + administraciÃ³n adaptada a Argentina (obras sociales, ARCA, Mercado Pago, WhatsApp).",
+        "usuarios": [
+            "OdontÃ³logo independiente: agenda propia, historia clÃ­nica, presupuestos y cobro directo",
+            "Recepcionista/administrativo: carga y confirma turnos, caja, seÃ±as y facturaciÃ³n",
+            "Administrador de clÃ­nica: mÃºltiples profesionales, sillones, sucursales, liquidaciones y reportes",
+            "Paciente: reserva online 24/7, confirma/cancela/reprograma, paga seÃ±as, accede a presupuestos",
+            "Roles secundarios: asistente, laboratorio, auditor/obra social"
+        ],
+        "casos_de_uso": [
+            "Como paciente, quiero reservar un turno online 24/7 para no depender del horario de recepciÃ³n",
+            "Como recepcionista, quiero ver la agenda por profesional y sillÃ³n con bloqueos y sobreturnos para evitar solapamientos",
+            "Como paciente, quiero confirmar/cancelar/reprogramar desde el recordatorio para liberar el horario a tiempo",
+            "Como odontÃ³logo, quiero registrar la atenciÃ³n con odontograma y generar el presupuesto en la misma consulta",
+            "Como administrador, quiero cobrar (MP/seÃ±a), facturar (ARCA/obras sociales) y liquidar sin doble carga",
+            "Como administrador, quiero recuperar ausentes e inactivos con recordatorios y campaÃ±as automÃ¡ticas"
+        ],
+        "funcionalidades_necesarias": [
+            "Reserva online 24/7 con enlace",
+            "Agenda multi-profesional/multi-sillÃ³n con duraciones variables, bloqueos, sobreturnos y anti-solapamiento",
+            "ConfirmaciÃ³n/cancelaciÃ³n/reprogramaciÃ³n y recordatorios por WhatsApp",
+            "Lista de espera",
+            "Ficha clÃ­nica con odontograma FDI y presupuestos/planes de tratamiento",
+            "Caja, cobros, seÃ±as con Mercado Pago y facturaciÃ³n ARCA",
+            "Obras sociales bÃ¡sicas con validaciÃ³n",
+            "Roles y permisos",
+            "Reportes bÃ¡sicos"
+        ],
+        "funcionalidades_opcionales": [
+            "Periodontograma e imÃ¡genes/radiografÃ­as",
+            "IA: agente de turnos, dictado, resumen clÃ­nico",
+            "Portal/app del paciente",
+            "CampaÃ±as y recupero de inactivos",
+            "Multisucursal",
+            "Laboratorio e inventario",
+            "API pÃºblica e integraciones (Google Calendar, radiologÃ­a, marketing)",
+            "Telemedicina",
+            "Modo offline",
+            "PlanificaciÃ³n 3D"
+        ],
+        "reglas_de_negocio": [
+            "Sin turnos superpuestos por profesional/sillÃ³n",
+            "Duraciones variables por prestaciÃ³n",
+            "Plazo de cancelaciÃ³n configurable con liberaciÃ³n automÃ¡tica del horario",
+            "La cancelaciÃ³n tardÃ­a puede perder la seÃ±a",
+            "Lista de espera que ofrece el hueco liberado por orden",
+            "Cobertura/copago de obra social calculado antes de confirmar el plan",
+            "Todo cobro emite comprobante",
+            "Trazabilidad de quiÃ©n registrÃ³/quÃ©/cuÃ¡ndo"
+        ],
+        "integraciones": [
+            "Obligatorias v1: WhatsApp Business API oficial, Mercado Pago, facturaciÃ³n ARCA",
+            "Deseables: PUCO/verificaciÃ³n de cobertura, Google Calendar, sitio web propio",
+            "Futuras: API pÃºblica, radiologÃ­a/imÃ¡genes, firma digital avanzada, marketing/Meta Ads"
+        ],
+        "restricciones": [
+            "Proyecto universitario (MetodologÃ­a I): alcance acotado, sin presupuesto para licencias pagas de terceros en v1",
+            "Mercado objetivo Argentina: precios ARS, normativa local",
+            "Priorizar integraciones con capa gratuita o sandbox",
+            "MVP demostrable con datos ficticios"
+        ],
+        "riesgos": [
+            "Supuesto sin probar: que independientes paguen por software cuando WhatsApp + papel les alcanza",
+            "La mitad de la evidencia son afirmaciones comerciales sin auditorÃ­a independiente",
+            "9 de 12 proveedores regionales no publican precios: benchmark de pricing incompleto y volÃ¡til",
+            "WhatsApp Business API, ARCA y Mercado Pago dependen de aprobaciones y costos de terceros",
+            "NingÃºn competidor demuestra cumplimiento normativo de datos de salud: validar con asesoramiento legal",
+            "Origen de Dentiqa y detalle de DentalTec/Benty parcialmente no verificados en fuente oficial"
+        ],
+        "preguntas_abiertas": [
+            "Â¿v1 solo independiente o tambiÃ©n clÃ­nica multi-profesional desde el dÃ­a uno?",
+            "Â¿SeÃ±a obligatoria u opcional por prestaciÃ³n?",
+            "Â¿FacturaciÃ³n ARCA real en v1 o comprobante interno?",
+            "Â¿QuÃ© obra social/nomenclador para el caso de prueba del MVP?",
+            "Â¿Hospedaje con costo o demo local para la entrega?",
+            "Verificar con demo los 5 competidores priorizados antes de fijar pricing"
+        ]
+    },
+    "kb": {
+        "files": [
+            "knowledge-base/01_vision_y_objetivos.md",
+            "knowledge-base/02_descripcion_general.md",
+            "knowledge-base/03_actores_y_roles.md",
+            "knowledge-base/04_modelo_de_datos.md",
+            "knowledge-base/05_reglas_de_negocio.md",
+            "knowledge-base/06_funcionalidades.md",
+            "knowledge-base/07_flujos_principales.md",
+            "knowledge-base/08_arquitectura_propuesta.md",
+            "knowledge-base/09_decisiones_y_supuestos.md",
+            "knowledge-base/10_preguntas_abiertas.md",
+            "knowledge-base/11_integraciones_argentinas.md",
+            "knowledge-base/README.md"
+        ],
+        "source": "ingest",
+        "created_by": "kb-creator",
+        "discovery": {
+            "stack": [
+                "Python",
+                "FastAPI",
+                "JWT",
+                "SQLAlchemy",
+                "PostgreSQL",
+                "Redis",
+                "Docker",
+                "Docker Compose",
+                "React",
+                "TypeScript",
+                "Vite"
+            ],
+            "domain": "salud_odontologica (dental practice management)",
+            "system_type": "web_app",
+            "problem": "Consultorios y clinicas odontologicas argentinas gestionan turnos por WhatsApp manual/papel/planillas: dobles reservas, ausentismo sin recupero, confirmaciones manuales y facturacion a obras sociales con debitos evitables. Falta un sistema centralizado de agenda + historia clinica odontologica + administracion adaptada a Argentina (obras sociales, ARCA, Mercado Pago, WhatsApp).",
+            "needs_infra": true,
+            "scale": "public_multi_user"
+        }
+    },
+    "roadmap": {
+        "created_by": "roadmap-generator",
+        "source": "CHANGES.md",
+        "changes": [
+            "C-01",
+            "C-02",
+            "C-03",
+            "C-04",
+            "C-05",
+            "C-06",
+            "C-07",
+            "C-08",
+            "C-09",
+            "C-10",
+            "C-11",
+            "C-12",
+            "C-13",
+            "C-14",
+            "C-15",
+            "C-16"
+        ]
+    },
+    "skills": {
+        "recommended": [
+            {
+                "skill": "vercel-labs/agent-skills@vercel-react-best-practices",
+                "installs": "791.9K",
+                "source": "https://skills.sh/vercel-labs/agent-skills/vercel-react-best-practices",
+                "why": "React best practices for the React+TS+Vite SPA (agenda multi-profesional, reserva publica 24/7, backoffice)."
+            },
+            {
+                "skill": "anthropics/skills@frontend-design",
+                "installs": "979K",
+                "source": "https://skills.sh/anthropics/skills/frontend-design",
+                "why": "UX/UI quality for clinical agenda and patient self-booking flows (Flujos 1-2)."
+            },
+            {
+                "skill": "supabase/agent-skills@supabase-postgres-best-practices",
+                "installs": "441.5K",
+                "source": "https://skills.sh/supabase/agent-skills/supabase-postgres-best-practices",
+                "why": "PostgreSQL schema/index/RLS best practices for turnos, historia clinica, caja and append-only auditoria."
+            },
+            {
+                "skill": "affaan-m/ecc@postgres-patterns",
+                "installs": "12.1K",
+                "source": "https://skills.sh/affaan-m/ecc/postgres-patterns",
+                "why": "Complements the Supabase skill with Postgres patterns for dominio clinico/facturacion (anti-solapamiento transaccional)."
+            },
+            {
+                "skill": "mattpocock/skills@tdd",
+                "installs": "1.1M",
+                "source": "https://skills.sh/mattpocock/skills/tdd",
+                "why": "TDD discipline for MVP increments C-01 through C-16 with demonstrable quality (university deliverable)."
+            },
+            {
+                "skill": "wshobson/agents@javascript-testing-patterns",
+                "installs": "20K",
+                "source": "https://skills.sh/wshobson/agents/javascript-testing-patterns",
+                "why": "Frontend testing patterns (Vitest) for agenda/caja/reportes flows in the Vite SPA."
+            },
+            {
+                "skill": "wshobson/agents@auth-implementation-patterns",
+                "installs": "18.2K",
+                "source": "https://skills.sh/wshobson/agents/auth-implementation-patterns",
+                "why": "JWT Bearer + RBAC implementation patterns for backoffice auth (api/deps.py, RN-SE-02)."
+            },
+            {
+                "skill": "mindrally/skills@fastapi-python",
+                "installs": "13.7K",
+                "source": "https://skills.sh/mindrally/skills/fastapi-python",
+                "why": "FastAPI backend patterns (routers, Pydantic schemas, SQLAlchemy, background workers)."
+            },
+            {
+                "skill": "jeffallan/claude-skills@fastapi-expert",
+                "installs": "5.8K",
+                "source": "https://skills.sh/jeffallan/claude-skills/fastapi-expert",
+                "why": "Deeper FastAPI guidance (deps, background jobs, idempotent webhooks for Mercado Pago/WhatsApp)."
+            },
+            {
+                "skill": "mindrally/skills@nextjs-react-typescript",
+                "installs": "5.2K",
+                "source": "https://skills.sh/mindrally/skills/nextjs-react-typescript",
+                "why": "React+TS patterns for frontend features; apply selectively (Next.js-oriented, project uses Vite SPA)."
+            },
+            {
+                "skill": "affaan-m/ecc@docker-patterns",
+                "installs": "13.1K",
+                "source": "https://skills.sh/affaan-m/ecc/docker-patterns",
+                "why": "Docker/Compose patterns for api/frontend/db/redis services (demo-local default deploy)."
+            },
+            {
+                "skill": "github/awesome-copilot@multi-stage-dockerfile",
+                "installs": "29K",
+                "source": "https://skills.sh/github/awesome-copilot/multi-stage-dockerfile",
+                "why": "Multi-stage Dockerfiles for lean api + frontend images in Docker Compose."
+            }
+        ],
+        "installed": [
+            "vercel-labs/agent-skills@vercel-react-best-practices",
+            "supabase/agent-skills@supabase-postgres-best-practices",
+            "mattpocock/skills@tdd",
+            "wshobson/agents@auth-implementation-patterns",
+            "mindrally/skills@fastapi-python",
+            "affaan-m/ecc@docker-patterns"
+        ]
+    },
+    "registry": {
+        "created_by": "skill-registry",
+        "registry_file": ".atl/skill-registry.md",
+        "skills": [
+            {
+                "name": "vercel-react-best-practices",
+                "trigger": "React components, Next.js pages, data fetching, bundle optimization, performance improvements",
+                "path": "C:\\Users\\Franco Gagliardi\\.agents\\skills\\vercel-react-best-practices\\SKILL.md"
+            },
+            {
+                "name": "supabase-postgres-best-practices",
+                "trigger": "Before any Postgres schema/migration/RLS/query change; slow-query diagnosis",
+                "path": "C:\\Users\\Franco Gagliardi\\.agents\\skills\\supabase-postgres-best-practices\\SKILL.md"
+            },
+            {
+                "name": "tdd",
+                "trigger": "Test-first features/bugfixes, red-green-refactor, integration tests",
+                "path": "C:\\Users\\Franco Gagliardi\\.agents\\skills\\tdd\\SKILL.md"
+            },
+            {
+                "name": "auth-implementation-patterns",
+                "trigger": "Auth systems, API security, OAuth2, RBAC, sessions, SSO",
+                "path": "C:\\Users\\Franco Gagliardi\\.agents\\skills\\auth-implementation-patterns\\SKILL.md"
+            },
+            {
+                "name": "fastapi-python",
+                "trigger": "FastAPI/Python APIs, async operations, routers, Pydantic, SQLAlchemy",
+                "path": "C:\\Users\\Franco Gagliardi\\.agents\\skills\\fastapi-python\\SKILL.md"
+            },
+            {
+                "name": "docker-patterns",
+                "trigger": "Dockerfiles/Compose, container security, networking, volumes, orchestration",
+                "path": "C:\\Users\\Franco Gagliardi\\.agents\\skills\\docker-patterns\\SKILL.md"
+            }
+        ],
+        "conventions": [],
+        "conventions_note": "No AGENTS.md/CLAUDE.md yet; section intentionally empty, populated in next phase"
+    }
 }
