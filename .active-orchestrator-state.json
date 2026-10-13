@@ -1,6 +1,6 @@
 ﻿{
     "owner": "active-orchestrator",
-    "step": "registry",
+    "step": "done",
     "version": 4,
     "discovery": {
         "created_by": "discovery-research",
@@ -357,5 +357,32 @@
         ],
         "conventions": [],
         "conventions_note": "No AGENTS.md/CLAUDE.md yet; section intentionally empty, populated in next phase"
+    },
+    "agents": {
+        "created_by": "agents-md-generator",
+        "created_at": "2026-10-13",
+        "files": [
+            "AGENTS.md",
+            "CLAUDE.md"
+        ],
+        "files_synced": true,
+        "global_claude_md": "absent (~/.claude/CLAUDE.md not found; universals included in-project)",
+        "registry_source": ".atl/skill-registry.md (6 skills mapped; no re-scan)",
+        "reglas_applied": "CONFIRMED by user 2026-10-13 (R-01..R-13, no changes)",
+        "reglas": [
+            "R-01 Python snake_case + type hints + Pydantic extra=forbid",
+            "R-02 FastAPI routers+schemas, async I/O, deps.py DI, HTTPException codes",
+            "R-03 Auth RBAC server-side, Bearer short-lived in memory, single-use public tokens, bcrypt+throttle",
+            "R-04 SQLAlchemy 2.x + Alembic only, PostgreSQL sole domain persistence",
+            "R-05 Postgres indexes + EXPLAIN (ANALYZE, BUFFERS), short tx on hot tables",
+            "R-06 Redis never source of truth, reserved queues only",
+            "R-07 Frontend strict TS, no any, PascalCase, no business logic in client",
+            "R-08 Docker pinned multi-stage non-root, secrets via env, healthchecks",
+            "R-09 TDD red-first, vertical slice, public-interface asserts, independent values",
+            "R-10 Agenda transactional anti-overlap, explicit sobreturno, bloqueos block, state machine",
+            "R-11 Signed evolution immutable + append-only audit, every cobro emits comprobante",
+            "R-12 v1 third-party sandbox/homologation only, idempotent webhooks, secrets in env",
+            "R-13 Universal: no commit/push/build without request, conventional-commits on demand, no AI co-authorship"
+        ]
     }
 }
