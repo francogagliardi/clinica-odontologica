@@ -120,7 +120,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux/Integ.)    │ A
 ## FASE 0 — Cimientos
 
 ### [C-01] `foundation-setup`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` completado (2026-10-13, archivado en openspec/changes/archive/2026-10-13-c-01-foundation-setup/)
 - **Scope**: Scaffolding completo + infraestructura base contenerizada
   - `docker-compose.yml`: servicios `api`, `frontend`, `db` (PostgreSQL), `redis` (mínimo exigido)
   - `backend/`: `Dockerfile`, `app/` con `domain/ application/ infrastructure/ models/ schemas/ api/ (deps.py) core/ workers/ main.py`, FastAPI mínima con health check
