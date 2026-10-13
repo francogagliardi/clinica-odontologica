@@ -1,0 +1,25 @@
+# Never commit real .env files (R-08/R-13)
+.env
+*.env
+!.env.example
+**/.env
+!**/.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+venv/
+.venv/
+
+# Frontend
+node_modules/
+dist/
+coverage/
+
+# Tooling / OS
+.git/
+.DS_Store
+Thumbs.db
