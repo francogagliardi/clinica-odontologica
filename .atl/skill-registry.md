@@ -14,6 +14,7 @@ See `_shared/skill-resolver.md` for the full resolution protocol.
 | Implementing auth systems, securing APIs, OAuth2/social login, RBAC, session management, SSO/multi-tenancy, debugging auth issues | auth-implementation-patterns | .agents/skills/auth-implementation-patterns/SKILL.md |
 | FastAPI/Python backend work: APIs, async operations, routers, Pydantic schemas, SQLAlchemy, background workers | fastapi-python | .agents/skills/fastapi-python/SKILL.md |
 | Creating or reviewing Dockerfiles/Compose services, container security, networking, volumes, multi-service orchestration, installer harnesses | docker-patterns | .agents/skills/docker-patterns/SKILL.md |
+| Preparing, reviewing or updating an OpenSpec change (proposal/design/specs/tasks); "revisá los escenarios", "faltan casos borde", "trazabilidad RN", "esto es verificable", before /opsx-apply; specs that look right but nobody can say how to test them | spec-scenario-auditor | .agents/skills/spec-scenario-auditor/SKILL.md |
 
 ## Compact Rules
 
@@ -69,10 +70,24 @@ Pre-digested rules per skill. Delegators copy matching blocks into sub-agent pro
 - Harden compose: no-new-privileges, read_only + tmpfs where possible, cap_drop ALL; bind dev ports to 127.0.0.1, omit ports in prod
 - Gotcha: Linux containers do NOT validate macOS/Windows behavior — keep a native CI matrix; one process per container; never store data without volumes
 
+### spec-scenario-auditor
+- Fire BEFORE /opsx-apply on any change: read proposal + specs + design + tasks, then audit each requirement
+- Every requirement needs three classes: happy path, business error (domain rule blocks it, expects a specific code), edge (soft-delete reuse, idempotent retry, concurrency, empty set)
+- Every scenario must trace to a KB rule (`RN-*`/`DD-*`/`US-*`, file+line) — never invent a rule; KB vs spec conflicts go to "Deriva de dominio" as an open question
+- Every THEN must be observable at a declared boundary (HTTP status/body, DB row/index/trigger, SPA render); verifying private internals or mocks = not verifiable
+- Every scenario needs a task in tasks.md stating how it is verified (test, command, SQL, manual step)
+- Flag anti-patterns: tautological THENs, renamed duplicates to "reach three", security requirements without a violation-attempt scenario
+- Domain edges this project always demands: unique + soft delete, idempotent seed/webhook, concurrent insert, invalid state transition, expired single-use token, append-only audit vs UPDATE/DELETE/TRUNCATE
+- Output: traceability matrix + gaps with suggested scenario + non-verifiable list + verdict (LISTO PARA APPLY | BLOQUEADO POR HUECOS)
+
 ## Project Conventions
 
-No convention files found (no AGENTS.md / CLAUDE.md / .cursorrules / GEMINI.md / copilot-instructions.md in project root). The conventions section is intentionally empty — it will be populated when AGENTS.md/CLAUDE.md is generated in the next foundation phase.
+Convention files exist and are canonical for every agent. Read `AGENTS.md` before coding; `CLAUDE.md` is a byte-identical copy (keep them in sync).
 
 | File | Path | Notes |
 |------|------|-------|
-| (none) | — | No convention files in project root yet |
+| AGENTS.md | AGENTS.md | Stack (DD-07a–DD-07e), KB index, skills per role, 16-change roadmap pointer, hard rules R-01–R-14 |
+| CLAUDE.md | CLAUDE.md | Same content as AGENTS.md (must stay identical) |
+| knowledge-base/ | knowledge-base/ | Domain source of truth (12 files, RN-*/DD-*/US-*/P-*/IN-* identifiers) |
+| CHANGES.md | CHANGES.md | 16 changes C-01–C-16, gates, critical path, "Leer antes" per change |
+| docs/skills-mcp/mcp.md | docs/skills-mcp/mcp.md | MCP `postgres` integration: requirements, config, connection check, limits, troubleshooting |
