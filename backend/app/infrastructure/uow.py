@@ -1,0 +1,55 @@
+"""Unit of work: one transaction per use case (R-04).
+
+The repository layer never commits; this context manager commits on success
+and rolls back on any exception, leaving the session reusable.
+"""
+
+from types import TracebackType
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from app.infrastructure.repositories import (
+    AuditoriaRepository,
+    ConsultorioRepository,
+    RolRepository,
+    UsuarioRepository,
+)
+
+
+class UnitOfWork:
+    """Groups repositories over a single session and owns the transaction."""
+
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+        self._session_factory = session_factory
+        self._session: AsyncSession | None = None
+
+    async def __aenter__(self) -> "UnitOfWork":
+        self._session = self._session_factory()
+        self.consultorios = ConsultorioRepository(self._session)
+        self.roles = RolRepository(self._session)
+        self.usuarios = UsuarioRepository(self._session)
+        self.auditoria = AuditoriaRepository(self._session)
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        assert self._session is not None
+        try:
+            if exc_type is not None:
+                await self._session.rollback()
+            else:
+                await self._session.commit()
+        finally:
+            await self._session.close()
+            self._session = None
+
+    @property
+    def session(self) -> AsyncSession:
+        """Raw session for cases the repositories do not cover yet."""
+        if self._session is None:
+            raise RuntimeError("UnitOfWork no está abierto")
+        return self._session

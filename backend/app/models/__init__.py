@@ -1,1 +1,20 @@
-"""SQLAlchemy models. No domain tables in C-01; models land via Alembic migrations from C-02 (R-04)."""
+"""Model package: importing it registers every table on `Base.metadata`."""
+
+from app.models.base import AuditMixin, Base
+from app.models.security import (
+    Consultorio,
+    RegistroAuditoria,
+    Rol,
+    Usuario,
+    UsuarioRol,
+)
+
+__all__ = [
+    "AuditMixin",
+    "Base",
+    "Consultorio",
+    "RegistroAuditoria",
+    "Rol",
+    "Usuario",
+    "UsuarioRol",
+]

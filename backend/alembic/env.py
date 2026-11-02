@@ -1,7 +1,8 @@
 """Alembic environment: URL comes from DATABASE_URL only (R-04).
 
-No models are imported in C-01 (target_metadata is None); domain tables
-arrive as versioned migrations from C-02 onward, never ad-hoc DDL.
+From C-02 on, `target_metadata` is the real model metadata so autogenerate can
+detect drift and the migration tests can compare ORM vs migrated schema.
+Schema changes still ship as versioned migrations, never ad-hoc DDL.
 """
 
 import asyncio
@@ -12,6 +13,8 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
+
+from app.models import Base
 
 config = context.config
 
@@ -26,7 +29,7 @@ if not database_url:
     )
 config.set_main_option("sqlalchemy.url", database_url)
 
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:

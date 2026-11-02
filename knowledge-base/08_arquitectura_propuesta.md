@@ -92,4 +92,5 @@ Despliegue v1: default **demo local vía Docker Compose** (api con Uvicorn + db 
 | `JWT_SECRET` | Firma de access tokens backoffice | aleatorio 256 bit | Y |
 | `JWT_ALGORITHM` | Algoritmo de firma JWT | `HS256` | N |
 | `JWT_EXPIRE_MINUTES` | Vida del access token | `60` | N |
+| `SEED_ADMIN_PASSWORD` | Contraseña del administrador demo al ejecutar `python -m app.seed` (sin default; el seed aborta si falta) | aleatoria | Y |
 | `REDIS_URL` | Conexión a colas/jobs (recordatorios, WhatsApp, 2.º plano) | `redis://redis:6379/0` | Y |

@@ -139,8 +139,8 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux/Integ.)    │ A
 ---
 
 ### [C-02] `core-models-seguridad`
-- **Estado**: `[ ]` pendiente — **artefactos preparados y validados (no implementado)**. `openspec validate c-02-core-models-seguridad --strict` ✅; auditado con la skill propia `spec-scenario-auditor` en 3 rondas, incluida una **sesión nueva independiente** (`docs/skills-mcp/evidencias/skill-audit-c-02-ronda3.md`); estado del esquema confirmado con el MCP `postgres` (solo `alembic_version`). Pendiente: aprobación humana de las decisiones de `design.md` (governance CRÍTICO) antes de codificar.
-- **Artefactos**: `openspec/changes/c-02-core-models-seguridad/` → `proposal.md`, `design.md`, `tasks.md`, `specs/security/core-models/spec.md`, `specs/platform/persistence-patterns/spec.md` (**32 escenarios**: esperado / error de negocio / borde, cada uno con tarea de verificación).
+- **Estado**: `[x]` completado (2026-11-01, archivado en openspec/changes/archive/2026-11-01-c-02-core-models-seguridad/) — **64 pruebas en verde** (28 unitarias + 36 de integración contra PostgreSQL real); los 32 escenarios trazados en `docs/skills-mcp/evidencias/c-02-verificacion-escenarios.md`; esquema post-migración verificado con el MCP `postgres` (`docs/skills-mcp/evidencias/mcp-verificacion-c-02.md`).
+- **Artefactos**: archivado en `openspec/changes/archive/2026-11-01-c-02-core-models-seguridad/`; las specs pasaron a `openspec/specs/security/core-models/spec.md` y `openspec/specs/platform/persistence-patterns/spec.md`.
 - **Scope**: Modelos base de seguridad + patrones de persistencia + seed mínimo
   - Modelos: `Consultorio, Usuario, Rol, UsuarioRol, RegistroAuditoria` (append-only, RN-SE-02)
   - `AuditMixin`: `is_active, created_at, updated_at, deleted_at`
