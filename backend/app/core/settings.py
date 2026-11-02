@@ -35,6 +35,16 @@ class Settings(BaseSettings):
     arca_cert: str
     arca_key: str
     app_base_url: str = "http://127.0.0.1:8080"
+    cors_allow_origins: str = "http://127.0.0.1:8080,http://localhost:8080"
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """Allowed browser origins as a list (CSV env var, SPA-shaped)."""
+        return [
+            origin.strip()
+            for origin in self.cors_allow_origins.split(",")
+            if origin.strip()
+        ]
 
 
 def load_settings() -> Settings:
