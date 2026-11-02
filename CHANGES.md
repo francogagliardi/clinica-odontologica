@@ -139,14 +139,15 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux/Integ.)    │ A
 ---
 
 ### [C-02] `core-models-seguridad`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[ ]` pendiente — **artefactos preparados y validados (no implementado)**. `openspec validate c-02-core-models-seguridad --strict` ✅; auditado con la skill propia `spec-scenario-auditor` en 3 rondas, incluida una **sesión nueva independiente** (`docs/skills-mcp/evidencias/skill-audit-c-02-ronda3.md`); estado del esquema confirmado con el MCP `postgres` (solo `alembic_version`). Pendiente: aprobación humana de las decisiones de `design.md` (governance CRÍTICO) antes de codificar.
+- **Artefactos**: `openspec/changes/c-02-core-models-seguridad/` → `proposal.md`, `design.md`, `tasks.md`, `specs/security/core-models/spec.md`, `specs/platform/persistence-patterns/spec.md` (**32 escenarios**: esperado / error de negocio / borde, cada uno con tarea de verificación).
 - **Scope**: Modelos base de seguridad + patrones de persistencia + seed mínimo
   - Modelos: `Consultorio, Usuario, Rol, UsuarioRol, RegistroAuditoria` (append-only, RN-SE-02)
   - `AuditMixin`: `is_active, created_at, updated_at, deleted_at`
   - `BaseRepository[T]` genérico + `UnitOfWork`
-  - Migración 001: tablas core + índices
-  - Seed: roles (administrador, odontologo, recepcionista, asistente, auditor) + usuario administrador demo
-  - Tests: mixin en modelo de prueba, seed idempotente, auditoría rechaza UPDATE/DELETE
+  - Migración `0002_core_models_seguridad` (`down_revision = "0001_base"`): tablas core + índices + triggers append-only (fila y `TRUNCATE`)
+  - Seed: roles (administrador, odontologo, recepcionista, asistente, auditor) + consultorio demo + usuario administrador demo (`SEED_ADMIN_PASSWORD` obligatoria)
+  - Tests: mixin en modelo de prueba, seed idempotente, auditoría rechaza UPDATE/DELETE/TRUNCATE, unicidad parcial con baja lógica
 - **Dependencias**: C-01
 - **Governance**: CRITICO
 - **Leer antes**:
