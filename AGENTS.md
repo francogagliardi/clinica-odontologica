@@ -84,7 +84,7 @@ El plan de implementación completo está en [CHANGES.md](CHANGES.md). Resumen:
 
 ## Reglas Duras
 
-> No existe `~/.claude/CLAUDE.md` global en este entorno: este archivo NO hereda nada y contiene tanto las reglas específicas del proyecto (stack-aware, DD-07a–DD-07e) como las universales mínimas. Son contrato; romperlas es un defecto. Estado: **CONFIRMADAS por el usuario (2026-10-13, R-01–R-13 sin cambios)**.
+> No existe `~/.claude/CLAUDE.md` global en este entorno: este archivo NO hereda nada y contiene tanto las reglas específicas del proyecto (stack-aware, DD-07a–DD-07e) como las universales mínimas. Son contrato; romperlas es un defecto. Estado: **CONFIRMADAS por el usuario (2026-10-13, R-01–R-13 sin cambios; R-14 añadida 2026-11-01)**.
 
 Formato `NUNCA X → hacer Y`:
 
@@ -101,6 +101,7 @@ Formato `NUNCA X → hacer Y`:
 - **R-11 (Clínica/fiscal)** — NUNCA editar evolución firmada ni cobro sin comprobante → rectificatoria enlazada + auditoría append-only (RN-CL-04, RN-SE-02); todo cobro emite comprobante; ARCA caído → interno + job encolado, nunca pérdida (RN-AD-01).
 - **R-12 (Integraciones v1)** — NUNCA costo real de terceros en v1 → WhatsApp capa de prueba, MP sandbox, ARCA homologación; webhooks idempotentes con ack + worker (sin doble cobro/mensaje); secretos solo en env vars.
 - **R-13 (Universal)** — NUNCA commitear/pushear/buildear sin pedido explícito, ni co-autoría IA en commits → working tree por defecto; commits conventional-commits solo a pedido.
+- **R-14 (Cierre verificado de change)** — NUNCA archivar/commitear/pushear un change sin validación manual del usuario → antes de cerrar: levantar Docker (`docker compose up -d --build`) con el stack completo, entregar una lista concreta de pruebas (qué probar, cómo, resultado esperado); esperar aprobación explícita; recién entonces bajar el stack (`docker compose down`), correr `/opsx:archive`, marcar `[x]` en `CHANGES.md` y commitear/pushear.
 
 Ante conflicto entre la KB y este archivo, las reglas duras prevalecen.
 
@@ -112,8 +113,11 @@ Ante conflicto entre la KB y este archivo, las reglas duras prevalecen.
 1. Leer la KB relevante (knowledge-base/)        → entender el dominio
 2. Identificar el change en CHANGES.md           → respetar dependencias y gates
 3. /opsx:propose C-NN-nombre                     → proposal + design + specs + tasks
-4. Implementar las tasks (cargando skills)       → respetando las reglas duras R-01–R-13
-5. /opsx:archive C-NN-nombre + marcar [x]        → cerrar el change
+4. Implementar las tasks (cargando skills)       → respetando las reglas duras R-01–R-14
+5. Levantar el stack + lista de pruebas (R-14)   → docker compose up -d --build; qué probar y cómo
+6. Aprobación explícita del usuario              → gate obligatorio: sin OK no se archiva
+7. /opsx:archive C-NN-nombre + marcar [x]        → cerrar el change (con el stack ya bajado)
+8. Commit + push del cierre                      → conventional-commits, sin co-autoría IA
 ```
 
 Aplicar TODAS las reglas duras en cada paso. Ante conflicto entre la KB y este archivo, las reglas duras prevalecen. Warnings LF→CRLF en Windows son cosméticos; sin `.gitignore` en el repo, no commitear secretos ni `.env` reales.
