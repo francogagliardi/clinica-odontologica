@@ -53,7 +53,7 @@ La fuente de verdad del dominio vive en `knowledge-base/`. **Leé el archivo rel
 
 ## Skills Disponibles
 
-Fuente de verdad: `.atl/skill-registry.md` (generado por `skill-registry`). 6 skills instaladas; no inventar otras.
+Fuente de verdad: `.atl/skill-registry.md` (generado por `skill-registry`). 7 skills instaladas (6 externas + 1 propia del proyecto); no inventar otras.
 
 | Agente | Rol | Skills que carga |
 |--------|-----|------------------|
@@ -61,11 +61,25 @@ Fuente de verdad: `.atl/skill-registry.md` (generado por `skill-registry`). 6 sk
 | **Backend Integraciones** | Auth/RBAC + WhatsApp/MP/ARCA + Redis workers + reportes (C-03, C-09–C-10, C-13–C-15) | `auth-implementation-patterns`, `fastapi-python`, `docker-patterns`, `tdd` |
 | **Frontend** | React + TS + Vite SPA: reserva pública 24/7 + agenda backoffice (C-07, C-08) | `vercel-react-best-practices`, `tdd` |
 | **Infra / Demo** | Docker/Compose api+frontend+db+redis, túnel webhooks, seed demo (C-01, C-16) | `docker-patterns`, `supabase-postgres-best-practices` |
-| **Orquestación** | OPSX/SDD: KB → CHANGES → propose → archive | Skills de arriba según contexto; sin skill propia instalada |
+| **Orquestación** | OPSX/SDD: KB → CHANGES → propose → archive | `spec-scenario-auditor` (siempre antes de `/opsx:apply`) + skills de arriba según contexto |
 
 Cargá la skill correspondiente al contexto ANTES de escribir código. Nota: `vercel-react-best-practices` trae reglas Next.js/RSC que NO aplican a esta SPA Vite — aplicar solo cliente/bundle/re-render.
 
+**Skill propia: `spec-scenario-auditor`** (`.agents/skills/spec-scenario-auditor/SKILL.md`). Audita las delta specs de un change contra la KB: exige por cada requirement un escenario esperado, uno de error de negocio y uno de borde, todos trazables a una regla `RN-*`/`DD-*` y verificables en un borde observable (HTTP/DB/UI), y que cada escenario tenga una tarea que diga cómo se verifica. Obligatoria antes de pasar un change a implementación; es la que detectó los huecos de C-02 (rondas en `docs/skills-mcp/evidencias/`).
+
 > Los compact rules de cada skill los resuelve el orquestador desde `.atl/skill-registry.md` (versionado en el repo; skills en `.agents/skills/`). Esta tabla solo mapea skill→rol.
+
+### MCP disponibles
+
+Un MCP es una **integración** a un sistema externo (herramientas), no una skill. Config del cliente: `%USERPROFILE%\.config\opencode\opencode.json`; guía reproducible: [docs/skills-mcp/mcp.md](docs/skills-mcp/mcp.md).
+
+| MCP | Para qué | Cuándo usarlo | Límites |
+|-----|----------|---------------|---------|
+| `postgres` (Postgres MCP Pro) | Inspeccionar el esquema real: tablas, índices, constraints, triggers, versión de Alembic | Antes de diseñar/cerrar un change con migraciones (C-02 en adelante) y al verificar una migración aplicada | `--access-mode=restricted` (solo lectura); únicamente base demo del Compose con datos ficticios; nunca datos de pacientes reales |
+| `context7` | Documentación vigente de librerías (SQLAlchemy, FastAPI, Alembic, React…) | Antes de codificar contra una API que pudo cambiar; migraciones de versión | Documentación pública, no el estado del proyecto |
+| `engram` | Memoria persistente de sesiones | Al iniciar sesión y al cerrar decisiones | No es fuente de verdad del dominio: la KB manda |
+
+Regla: si la herramienta MCP contradice a la KB, gana la KB y la discrepancia se registra como pregunta abierta. Nada que venga de un MCP se copia al repo con credenciales.
 
 ---
 

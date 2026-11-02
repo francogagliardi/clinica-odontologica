@@ -92,6 +92,13 @@
 **Contexto**: respuesta P-05 (parcial — falta el cierre por constraints).
 **Trade-offs aceptados**: webhooks de MP/WhatsApp requieren URL pública (túnel) en modo demo local.
 
+### DD-13 — Fundación asistida: skill propia `spec-scenario-auditor` + MCP `postgres` de solo lectura (2026-11-01)
+**Decisión**: la fundación incorpora dos herramientas de trabajo del agente, con roles distintos:
+- **Skill propia** `spec-scenario-auditor` (`.agents/skills/spec-scenario-auditor/SKILL.md`), registrada en `.atl/skill-registry.md`: audita las delta specs de un change contra la KB exigiendo, por requirement, un escenario esperado, uno de error de negocio y uno de borde, trazables a `RN-*`/`DD-*` y verificables en un borde observable, con tarea de verificación asociada. Es obligatoria antes de pasar un change a implementación.
+- **MCP** `postgres` (Postgres MCP Pro, `--access-mode=restricted`, imagen fijada por digest): inspecciona el esquema real (tablas, índices, constraints, triggers, versión de Alembic) durante la preparación y verificación de changes.
+**Contexto**: TP de Metodología I «integrar una skill propia y un MCP»; la skill se creó con `skill-creator` y se aplicó a C-02 (detectó 3 huecos de escenarios y un falso error de negocio, corregidos). El MCP se comparó con el Reference PostgreSQL MCP Server (archivado) y se documentó en `docs/skills-mcp/mcp.md`.
+**Trade-offs aceptados**: un MCP más suma herramientas al contexto (se mantiene solo lectura y con datos ficticios); la skill agrega un paso obligatorio antes de `/opsx:apply`, a cambio de specs verificables antes de escribir código. Límite conocido: el dueño de la tabla puede deshabilitar triggers, por lo que RN-SE-02 protege contra la aplicación y el SQL accidental, no contra un DBA (se endurece en C-16 con un rol sin privilegios de owner).
+
 ## Supuestos inferidos
 
 ### SU-01 — [CERRADO por P-06, REFINADO 2026-10-13] Stack exacto: Python + FastAPI + JWT + SQLAlchemy + PostgreSQL + Redis + Docker/Compose + React + TS + Vite (DD-07a–DD-07e).
