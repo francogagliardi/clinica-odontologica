@@ -18,7 +18,13 @@ https://github.com/francogagliardi/clinica-odontologica
 
 ## Commit de entrega
 
-`<pendiente de completar>` — el working tree está sin commitear por la regla R-13 del proyecto (no se commitea sin pedido explícito). Al commitear, reemplazar por el SHA y conservar el historial que muestre el proceso: skill → MCP → evidencias → fundación → change.
+`25c9b63` — `docs(changes): prepare C-02 core-models-seguridad with 32 verifiable scenarios` (contiene la totalidad de los artefactos del TP). Historial del proceso:
+
+| Commit | Qué muestra |
+|---|---|
+| `f2b6be7` | Alta de la skill propia y su registro en la fundación |
+| `52369e1` | Integración y documentación reproducible del MCP |
+| `25c9b63` | Change C-02 preparado, evidencias de auditoría y documentos de la entrega |
 
 ## Documentos de la entrega
 
