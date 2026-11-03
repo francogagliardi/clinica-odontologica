@@ -7,7 +7,7 @@ physical-delete operation: business entities are soft-deleted only.
 import uuid
 from typing import Generic, TypeVar
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
@@ -70,6 +70,23 @@ class RolRepository(BaseRepository[Rol]):
 
 class UsuarioRepository(BaseRepository[Usuario]):
     model = Usuario
+
+    async def get_by_email(
+        self, email: str, include_inactive: bool = False
+    ) -> Usuario | None:
+        """Find a user by email, case-insensitively, optionally including bajas.
+
+        The comparison is done on `lower(email)` so login does not depend on how
+        the address was typed. A duplicate differing only in case is prevented
+        by normalizing the address on the write path (seed/alta).
+        """
+        statement = select(Usuario).where(
+            func.lower(Usuario.email) == email.strip().lower()
+        )
+        if not include_inactive:
+            statement = statement.where(Usuario.deleted_at.is_(None))
+        result = await self._session.scalars(statement)
+        return result.first()
 
 
 class AuditoriaRepository:

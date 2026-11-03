@@ -37,11 +37,11 @@ def test_baseline_revision_carries_zero_domain_ddl() -> None:
 
 
 def test_single_head_revision() -> None:
-    """The revision graph has exactly one head (C-02 extends the chain)."""
+    """The revision graph has exactly one head (C-03 extends the chain)."""
     config = Config(str(_BACKEND_DIR / "alembic.ini"))
     config.set_main_option("script_location", str(_BACKEND_DIR / "alembic"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["0002_core_models_seguridad"]
+    assert script.get_heads() == ["0003_tokens_un_solo_uso"]
 
 
 def test_c02_revision_chains_from_baseline() -> None:
@@ -50,3 +50,12 @@ def test_c02_revision_chains_from_baseline() -> None:
         _BACKEND_DIR / "alembic" / "versions" / "0002_core_models_seguridad.py"
     ).read_text(encoding="utf-8")
     assert 'down_revision: str | None = "0001_base"' in source
+
+
+def test_c03_revision_chains_from_c02() -> None:
+    """0003 adds the public tokens table on top of the C-02 schema."""
+    source = (
+        _BACKEND_DIR / "alembic" / "versions" / "0003_tokens_un_solo_uso.py"
+    ).read_text(encoding="utf-8")
+    assert 'down_revision: str | None = "0002_core_models_seguridad"' in source
+    assert "tokens_un_solo_uso" in source

@@ -161,14 +161,14 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux/Integ.)    │ A
 ## FASE 1 — Identidad y acceso
 
 ### [C-03] `auth-jwt-rbac`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado 2026-11-02 (`openspec/changes/archive/2026-11-02-c-03-auth-jwt-rbac`)
 - **Scope**: Autenticación JWT backoffice + base RBAC + util de tokens públicos
-  - `POST /usuarios/login` (credenciales) → `access_token` JWT corto + datos de rol (DD-07b; sin refresh en v1: revocación solo vía expiración corta)
+  - `POST /usuarios/login` (credenciales) → `access_token` JWT corto con claims `sub/typ/iat/exp` + datos de rol en la respuesta (DD-07b; sin refresh en v1: revocación vía expiración corta y relectura de roles en cada request)
   - SPA guarda el token en memoria y lo envía como `Authorization: Bearer <jwt>`
-  - `api/deps.py`: valida firma/expiración (`JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRE_MINUTES`), carga usuario, helpers `require_role()`; RBAC aplicado en cada router, nunca solo en UI
-  - Hash de password con bcrypt; throttling anti-fuerza-bruta en login
-  - Util `single_use_token` (crear/verificar, un solo uso + vencimiento, RN-NO-03) para C-07/C-09 — sin endpoints públicos aún
-  - Tests: login ok/credenciales mal/token expirado 401, rol insuficiente 403, token opaco reutilizado 410
+  - `api/deps.py`: valida firma/tipo/expiración (`JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRE_MINUTES`), carga usuario, helpers `require_role()`; RBAC aplicado en cada router, nunca solo en UI
+  - Hash de password con bcrypt; auditoría de login en `registro_auditoria` (RN-SE-02); throttling anti-fuerza-bruta con `Retry-After`
+  - Util `single_use_token` (crear/verificar/consumir, hash SHA-256 en reposo, propósito, un solo uso + vencimiento, RN-NO-03) para C-07/C-09 — sin endpoints públicos aún; el mapeo a HTTP 404/410 queda en esos changes
+  - Tests: login ok/credenciales mal/token expirado 401, rol insuficiente 403, token opaco reutilizado (`TokenAlreadyUsedError`; HTTP 410 en C-07/C-09)
 - **Dependencias**: C-02
 - **Governance**: CRITICO
 - **Leer antes**:

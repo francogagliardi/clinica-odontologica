@@ -47,6 +47,16 @@ class UnitOfWork:
             await self._session.close()
             self._session = None
 
+    async def commit(self) -> None:
+        """Commit mid-use-case.
+
+        Only for facts that must survive even when the request ends in an
+        error response (e.g. the append-only login audit before a 401).
+        """
+        if self._session is None:
+            raise RuntimeError("UnitOfWork no está abierto")
+        await self._session.commit()
+
     @property
     def session(self) -> AsyncSession:
         """Raw session for cases the repositories do not cover yet."""

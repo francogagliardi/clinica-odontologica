@@ -8,6 +8,7 @@ from app.models.security import (
     Usuario,
     UsuarioRol,
 )
+from app.models.token import TokenUnSoloUso
 
 __all__ = [
     "AuditMixin",
@@ -15,6 +16,7 @@ __all__ = [
     "Consultorio",
     "RegistroAuditoria",
     "Rol",
+    "TokenUnSoloUso",
     "Usuario",
     "UsuarioRol",
 ]

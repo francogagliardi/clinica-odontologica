@@ -7,6 +7,7 @@ from app.models import (
     Consultorio,
     RegistroAuditoria,
     Rol,
+    TokenUnSoloUso,
     Usuario,
     UsuarioRol,
 )
@@ -17,6 +18,7 @@ EXPECTED_TABLES = {
     "usuarios",
     "usuario_roles",
     "registro_auditoria",
+    "tokens_un_solo_uso",
 }
 
 
@@ -81,3 +83,22 @@ def test_unicidad_parcial_sobre_filas_activas() -> None:
         assert index.unique is True
         predicate = index.dialect_options["postgresql"].get("where")
         assert str(predicate) == "deleted_at IS NULL"
+
+
+def test_tokens_publicos_guardan_solo_el_hash() -> None:
+    columns = set(TokenUnSoloUso.__table__.c.keys())
+    assert "token_hash" in columns
+    assert "token" not in columns
+    assert not TokenUnSoloUso.__table__.c.token_hash.nullable
+
+
+def test_consumo_de_token_exige_coherencia() -> None:
+    checks = [
+        constraint
+        for constraint in TokenUnSoloUso.__table__.constraints
+        if isinstance(constraint, CheckConstraint)
+    ]
+    assert any(
+        "(usado) = (usado_at IS NOT NULL)" in str(check.sqltext)
+        for check in checks
+    )

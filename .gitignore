@@ -23,3 +23,6 @@ coverage/
 .git/
 .DS_Store
 Thumbs.db
+
+# Local compose override
+docker-compose.override.yml

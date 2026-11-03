@@ -1,4 +1,4 @@
-"""Migration 0002 under a real PostgreSQL: DDL, parity and reversibility."""
+"""Migrations under a real PostgreSQL: DDL, parity and reversibility (C-02/C-03)."""
 
 import os
 import subprocess
@@ -84,11 +84,11 @@ async def _snapshot(engine) -> dict[str, object]:
 
 
 def test_upgrade_crea_tablas_columnas_e_indices(engine) -> None:
-    """Expected: 0002 creates exactly the five tables with their columns."""
+    """Expected: `upgrade head` creates every table declared in the ORM."""
 
     async def scenario() -> None:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0002_core_models_seguridad"
+        assert snapshot["version"] == "0003_tokens_un_solo_uso"
         assert snapshot["tables"] == set(Base.metadata.tables) | {
             "alembic_version"
         }
