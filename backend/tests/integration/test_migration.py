@@ -88,7 +88,7 @@ def test_upgrade_crea_tablas_columnas_e_indices(engine) -> None:
 
     async def scenario() -> None:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0004_recursos_agendables"
+        assert snapshot["version"] == "0005_pacientes_cobertura_base"
         assert snapshot["tables"] == set(Base.metadata.tables) | {
             "alembic_version"
         }
@@ -144,6 +144,8 @@ def test_indices_unicos_son_parciales(engine) -> None:
             "uq_profesionales_matricula_activo",
             "uq_sillones_nombre_activo",
             "uq_prestaciones_codigo_activo",
+            "uq_pacientes_dni_activo",
+            "uq_obras_sociales_nombre_activo",
         ):
             assert "WHERE (deleted_at IS NULL)" in indexes[name], name
 
@@ -209,3 +211,32 @@ def test_downgrade_y_upgrade_restaura_el_esquema(
     restored = run(after_upgrade())
     assert restored["tables"] == set(Base.metadata.tables) | {"alembic_version"}
     assert "trg_registro_auditoria_sin_truncate" in restored["triggers"]
+
+
+def test_c05_downgrade_y_upgrade_restaura_solo_sus_tablas(
+    migrated_database: str, engine
+) -> None:
+    """Edge: 0005 ⇄ 0004 is reversible without touching C-04 tables."""
+
+    _alembic("downgrade", "0004_recursos_agendables", database_url=migrated_database)
+
+    async def after_downgrade() -> dict[str, object]:
+        snapshot = await _snapshot(engine)
+        assert snapshot["version"] == "0004_recursos_agendables"
+        assert snapshot["tables"] == (
+            set(Base.metadata.tables)
+            - {"pacientes", "obras_sociales"}
+            | {"alembic_version"}
+        )
+        return snapshot
+
+    run(after_downgrade())
+
+    _alembic("upgrade", "head", database_url=migrated_database)
+
+    async def after_upgrade() -> dict[str, object]:
+        return await _snapshot(engine)
+
+    restored = run(after_upgrade())
+    assert restored["version"] == "0005_pacientes_cobertura_base"
+    assert {"pacientes", "obras_sociales"} <= restored["tables"]

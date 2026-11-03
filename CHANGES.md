@@ -203,14 +203,14 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux/Integ.)    │ A
 ---
 
 ### [C-05] `pacientes-cobertura-base`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado 2026-11-03 (archivado en `openspec/changes/archive/`) — 285 tests en verde
 - **Scope**: Demanda — pacientes + convenios base
-  - Modelos: `Paciente (DNI único por consultorio, teléfono WhatsApp requerido, obra_social_id, nro_afiliado), ObraSocial/Convenio (nomenclador_ref, reglas_cobertura)`
-  - Endpoints: `/pacientes` (alta, búsqueda por dni/teléfono/apellido, ficha) + `/obras-sociales` (CRUD convenios)
-  - Validación formato DNI/teléfono AR; teléfono ausente bloquea alta (canal WhatsApp requerido)
-  - Migración 003: tablas + índices (dni, telefono, apellido)
-  - Seed: convenio ficticio "OS Demo" (DD-11) + pacientes ficticios para la demo
-  - Tests: DNI duplicado en mismo consultorio 409, teléfono inválido 422, búsqueda por índice
+  - Modelos: `Paciente (DNI único por consultorio, teléfono WhatsApp requerido, obra_social_id, nro_afiliado), ObraSocial/Convenio (nomenclador_ref, reglas_cobertura, validacion_externa)`
+  - Endpoints: `/pacientes` (alta, búsqueda por dni/teléfono/apellido, ficha, edición, baja) + `/obras-sociales` (CRUD convenios)
+  - Validación formato DNI/teléfono AR (celular canónico `+549…`); teléfono ausente bloquea el alta (canal WhatsApp requerido)
+  - Migración `0005_pacientes_cobertura_base`: tablas + índices (dni, telefono, `lower(apellido)`, `lower(nombre)`)
+  - Seed: convenio ficticio "OS Demo" (DD-11) + 3 pacientes ficticios para la demo
+  - Tests: DNI duplicado en mismo consultorio 409 (API y SQL directo), teléfono inválido 422, búsqueda por índice, reglas de cobertura inválidas 422
 - **Dependencias**: C-03
 - **Governance**: MEDIO
 - **Leer antes**:

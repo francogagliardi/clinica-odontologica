@@ -16,6 +16,8 @@ from app.models import (
     Base,
     Bloqueo,
     Consultorio,
+    ObraSocial,
+    Paciente,
     Prestacion,
     Profesional,
     ProfesionalSillon,
@@ -253,6 +255,99 @@ class PrestacionRepository(BaseRepository[Prestacion]):
             statement = statement.where(Prestacion.id != exclude_id)
         result = await self._session.scalars(statement)
         return result.first()
+
+    async def codigos_activos(self, codigos: list[str]) -> set[str]:
+        """Return which of the given codes exist in the active catalogue."""
+        if not codigos:
+            return set()
+        result = await self._session.scalars(
+            select(Prestacion.codigo).where(
+                Prestacion.codigo.in_(codigos),
+                Prestacion.deleted_at.is_(None),
+            )
+        )
+        return set(result)
+
+
+class ObraSocialRepository(BaseRepository[ObraSocial]):
+    model = ObraSocial
+
+    async def get_by_nombre(
+        self,
+        consultorio_id: uuid.UUID,
+        nombre: str,
+        exclude_id: uuid.UUID | None = None,
+    ) -> ObraSocial | None:
+        """Case-insensitive lookup used to keep agreement names unique."""
+        statement = select(ObraSocial).where(
+            ObraSocial.consultorio_id == consultorio_id,
+            func.lower(ObraSocial.nombre) == nombre.strip().lower(),
+            ObraSocial.deleted_at.is_(None),
+        )
+        if exclude_id is not None:
+            statement = statement.where(ObraSocial.id != exclude_id)
+        result = await self._session.scalars(statement)
+        return result.first()
+
+    async def list_by_consultorio(
+        self, consultorio_id: uuid.UUID
+    ) -> list[ObraSocial]:
+        result = await self._session.scalars(
+            select(ObraSocial)
+            .where(
+                ObraSocial.consultorio_id == consultorio_id,
+                ObraSocial.deleted_at.is_(None),
+            )
+            .order_by(ObraSocial.nombre)
+        )
+        return list(result)
+
+
+class PacienteRepository(BaseRepository[Paciente]):
+    model = Paciente
+
+    async def get_by_dni(
+        self,
+        consultorio_id: uuid.UUID,
+        dni: str,
+        exclude_id: uuid.UUID | None = None,
+    ) -> Paciente | None:
+        statement = select(Paciente).where(
+            Paciente.consultorio_id == consultorio_id,
+            Paciente.dni == dni,
+            Paciente.deleted_at.is_(None),
+        )
+        if exclude_id is not None:
+            statement = statement.where(Paciente.id != exclude_id)
+        result = await self._session.scalars(statement)
+        return result.first()
+
+    async def search(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        dni: str | None = None,
+        telefono: str | None = None,
+        apellido: str | None = None,
+    ) -> list[Paciente]:
+        """Bounded lookup: callers must pass at least one criterion (D4)."""
+        statement = select(Paciente).where(
+            Paciente.consultorio_id == consultorio_id,
+            Paciente.deleted_at.is_(None),
+        )
+        if dni is not None:
+            statement = statement.where(Paciente.dni == dni)
+        if telefono is not None:
+            statement = statement.where(Paciente.telefono == telefono)
+        if apellido is not None:
+            statement = statement.where(
+                func.lower(Paciente.apellido).like(
+                    f"{apellido.strip().lower()}%"
+                )
+            )
+        statement = statement.order_by(Paciente.apellido, Paciente.nombre)
+        result = await self._session.scalars(statement)
+        return list(result)
 
 
 class BloqueoRepository(BaseRepository[Bloqueo]):

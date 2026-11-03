@@ -1,14 +1,26 @@
 """Demo seed: required secret, idempotency, concurrency, no credential rewrite."""
 
 import asyncio
+import re
 
 import bcrypt
 import pytest
 from sqlalchemy import func, select
 
-from app.models import Consultorio, Prestacion, Rol, Sillon, Usuario, UsuarioRol
+from app.models import (
+    Consultorio,
+    ObraSocial,
+    Paciente,
+    Prestacion,
+    Rol,
+    Sillon,
+    Usuario,
+    UsuarioRol,
+)
 from app.seed import (
     ADMIN_EMAIL,
+    OBRA_SOCIAL_DEMO,
+    PACIENTES_DEMO,
     PRESTACIONES_DEMO,
     ROLES,
     SILLONES_DEMO,
@@ -95,6 +107,8 @@ def test_seed_es_idempotente(session_factory) -> None:
         assert await _count(session_factory, Prestacion) == len(
             PRESTACIONES_DEMO
         )
+        assert await _count(session_factory, ObraSocial) == 1
+        assert await _count(session_factory, Paciente) == len(PACIENTES_DEMO)
 
     run(scenario())
 
@@ -170,6 +184,58 @@ def test_seed_no_reescribe_el_hash(session_factory) -> None:
     run(scenario())
 
 
+def test_seed_incluye_convenio_y_pacientes_ficticios(
+    session_factory,
+) -> None:
+    """Expected: OS Demo and three fictional patients with valid formats."""
+
+    async def scenario() -> None:
+        await _seed(session_factory, "demo-secret-123")
+
+        async with session_factory() as session:
+            obra_social = await session.scalar(
+                select(ObraSocial).where(
+                    ObraSocial.nombre == OBRA_SOCIAL_DEMO["nombre"]
+                )
+            )
+            assert obra_social is not None
+            assert (
+                obra_social.nomenclador_ref
+                == OBRA_SOCIAL_DEMO["nomenclador_ref"]
+            )
+            assert obra_social.validacion_externa is False
+            assert obra_social.reglas_cobertura == (
+                OBRA_SOCIAL_DEMO["reglas_cobertura"]
+            )
+
+            pacientes = list(await session.scalars(select(Paciente)))
+            assert len(pacientes) == len(PACIENTES_DEMO)
+            for paciente in pacientes:
+                assert 7 <= len(paciente.dni) <= 8
+                assert paciente.dni.isdigit()
+                assert paciente.telefono.startswith("+549")
+                assert re.fullmatch(r"\+549\d{10}", paciente.telefono)
+            con_cobertura = [
+                paciente
+                for paciente in pacientes
+                if paciente.obra_social_id is not None
+            ]
+            assert len(con_cobertura) == 2
+            assert all(
+                paciente.obra_social_id == obra_social.id
+                for paciente in con_cobertura
+            )
+            sin_cobertura = [
+                paciente
+                for paciente in pacientes
+                if paciente.obra_social_id is None
+            ]
+            assert len(sin_cobertura) == 1
+            assert sin_cobertura[0].nro_afiliado is None
+
+    run(scenario())
+
+
 def test_seed_concurrente_no_falla(session_factory) -> None:
     """Edge: two simultaneous seeds do not violate unique indexes."""
 
@@ -187,5 +253,7 @@ def test_seed_concurrente_no_falla(session_factory) -> None:
         assert await _count(session_factory, Prestacion) == len(
             PRESTACIONES_DEMO
         )
+        assert await _count(session_factory, ObraSocial) == 1
+        assert await _count(session_factory, Paciente) == len(PACIENTES_DEMO)
 
     run(scenario())

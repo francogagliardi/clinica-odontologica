@@ -14,7 +14,7 @@ import uuid
 from decimal import Decimal
 
 import bcrypt
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +22,8 @@ from app.core.settings import load_settings
 from app.infrastructure.db import create_engine, create_session_factory
 from app.models import (
     Consultorio,
+    ObraSocial,
+    Paciente,
     Prestacion,
     Rol,
     Sillon,
@@ -86,6 +88,50 @@ PRESTACIONES_DEMO: tuple[dict[str, object], ...] = (
 
 # Partial unique indexes only cover active rows; ON CONFLICT must be told so.
 _ACTIVO = text("deleted_at IS NULL")
+
+# Fictional agreement (DD-11): local rules only, never a real payer (R-12).
+OBRA_SOCIAL_DEMO: dict[str, object] = {
+    "nombre": "OS Demo",
+    "nomenclador_ref": "DEMO-LOCAL",
+    "reglas_cobertura": {
+        "cobertura_porcentaje": 60,
+        "copago_porcentaje": 40,
+        "prestaciones_cubiertas": ["CONS", "LIM", "OBT"],
+        "requiere_autorizacion": False,
+    },
+    "validacion_externa": False,
+}
+
+# Fictional patients for the demo; never real people or real documents.
+PACIENTES_DEMO: tuple[dict[str, object], ...] = (
+    {
+        "nombre": "Ana",
+        "apellido": "Demo",
+        "dni": "30111222",
+        "telefono": "+5491145550001",
+        "email": "ana.demo@example.test",
+        "con_cobertura": True,
+        "nro_afiliado": "DEMO-0001",
+    },
+    {
+        "nombre": "Bruno",
+        "apellido": "Demo",
+        "dni": "28999888",
+        "telefono": "+5491145550002",
+        "email": "bruno.demo@example.test",
+        "con_cobertura": True,
+        "nro_afiliado": "DEMO-0002",
+    },
+    {
+        "nombre": "Carla",
+        "apellido": "Demo",
+        "dni": "33444555",
+        "telefono": "+5491145550003",
+        "email": "carla.demo@example.test",
+        "con_cobertura": False,
+        "nro_afiliado": None,
+    },
+)
 
 
 def hash_password(password: str) -> str:
@@ -153,6 +199,43 @@ async def run_seed(session: AsyncSession, admin_password: str) -> None:
             .on_conflict_do_nothing(
                 index_elements=["codigo"], index_where=_ACTIVO
             )
+        )
+
+    # The target-less ON CONFLICT also covers expression indexes (lower(nombre)).
+    await session.execute(
+        insert(ObraSocial)
+        .values(
+            id=uuid.uuid4(),
+            consultorio_id=consultorio_id,
+            **OBRA_SOCIAL_DEMO,
+        )
+        .on_conflict_do_nothing()
+    )
+    obra_social_id = await session.scalar(
+        select(ObraSocial.id).where(
+            func.lower(ObraSocial.nombre)
+            == OBRA_SOCIAL_DEMO["nombre"].lower(),
+            ObraSocial.deleted_at.is_(None),
+        )
+    )
+
+    for datos in PACIENTES_DEMO:
+        valores = {
+            clave: valor
+            for clave, valor in datos.items()
+            if clave != "con_cobertura"
+        }
+        await session.execute(
+            insert(Paciente)
+            .values(
+                id=uuid.uuid4(),
+                consultorio_id=consultorio_id,
+                obra_social_id=(
+                    obra_social_id if datos["con_cobertura"] else None
+                ),
+                **valores,
+            )
+            .on_conflict_do_nothing()
         )
 
     # The hash is computed for the insert attempt only: if the row already

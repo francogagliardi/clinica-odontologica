@@ -7,7 +7,8 @@ from app.models.agenda import (
     Sillon,
 )
 from app.models.base import AuditMixin, Base
-from app.models.comercial import Prestacion
+from app.models.comercial import ObraSocial, Prestacion
+from app.models.pacientes import Paciente
 from app.models.security import (
     Consultorio,
     RegistroAuditoria,
@@ -22,6 +23,8 @@ __all__ = [
     "Base",
     "Bloqueo",
     "Consultorio",
+    "ObraSocial",
+    "Paciente",
     "Prestacion",
     "Profesional",
     "ProfesionalSillon",

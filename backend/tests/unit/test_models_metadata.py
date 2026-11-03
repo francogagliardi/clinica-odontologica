@@ -6,6 +6,8 @@ from app.models import (
     Base,
     Bloqueo,
     Consultorio,
+    ObraSocial,
+    Paciente,
     Prestacion,
     Profesional,
     ProfesionalSillon,
@@ -29,6 +31,8 @@ EXPECTED_TABLES = {
     "profesionales_sillones",
     "prestaciones",
     "bloqueos",
+    "pacientes",
+    "obras_sociales",
 }
 
 
@@ -58,6 +62,8 @@ def test_baja_logica_se_declara_en_entidades_de_negocio() -> None:
         Sillon,
         Prestacion,
         Bloqueo,
+        Paciente,
+        ObraSocial,
     ):
         columns = set(model.__table__.c.keys())
         assert {"is_active", "created_at", "updated_at", "deleted_at"} <= columns
@@ -80,6 +86,8 @@ def test_check_de_coherencia_de_baja_logica_declarado() -> None:
         Sillon,
         Prestacion,
         Bloqueo,
+        Paciente,
+        ObraSocial,
     ):
         checks = [
             constraint
@@ -190,3 +198,68 @@ def test_profesional_sillon_tiene_pk_compuesta() -> None:
 
 def test_profesional_puede_no_tener_usuario_vinculado() -> None:
     assert Profesional.__table__.c.usuario_id.nullable is True
+
+
+def test_paciente_valida_dni_telefono_y_cobertura() -> None:
+    sqltext = " ".join(str(check.sqltext) for check in _checks(Paciente))
+    assert "^[0-9]{7,8}$" in sqltext
+    assert "^\\+549[0-9]{10}$" in sqltext
+    assert "obra_social_id IS NOT NULL" in sqltext
+    assert "nro_afiliado IS NULL" in sqltext
+
+
+def test_paciente_guarda_dni_y_telefono_canonicos() -> None:
+    assert not Paciente.__table__.c.dni.nullable
+    assert Paciente.__table__.c.dni.type.length == 8
+    assert not Paciente.__table__.c.telefono.nullable
+    assert Paciente.__table__.c.fecha_nacimiento.nullable is True
+    assert Paciente.__table__.c.obra_social_id.nullable is True
+    assert Paciente.__table__.c.nro_afiliado.nullable is True
+
+
+def test_obra_social_valida_reglas_y_deshabilita_validacion_externa() -> None:
+    sqltext = " ".join(str(check.sqltext) for check in _checks(ObraSocial))
+    assert "jsonb_typeof(reglas_cobertura)" in sqltext
+    assert "validacion_externa" in sqltext
+    assert "btrim(nombre)" in sqltext
+
+
+def test_unicidad_de_pacientes_y_obras_sociales() -> None:
+    indexes = {
+        index.name: index
+        for table in Base.metadata.tables.values()
+        for index in table.indexes
+    }
+    expected = {
+        "uq_pacientes_dni_activo": "deleted_at IS NULL",
+        "uq_obras_sociales_nombre_activo": "deleted_at IS NULL",
+    }
+    for name, predicate in expected.items():
+        assert name in indexes
+        assert indexes[name].unique is True
+        where = indexes[name].dialect_options["postgresql"].get("where")
+        assert str(where) == predicate
+
+
+def test_indices_de_busqueda_de_pacientes() -> None:
+    indexes = {
+        index.name: index
+        for table in Base.metadata.tables.values()
+        for index in table.indexes
+    }
+    assert "ix_pacientes_telefono" in indexes
+    assert [column.name for column in indexes["ix_pacientes_telefono"].columns] == [
+        "consultorio_id",
+        "telefono",
+    ]
+    apellido = indexes["ix_pacientes_apellido_lower"]
+    assert "lower" in str(apellido.expressions[0]).lower()
+
+
+def test_obra_social_referencia_el_consultorio() -> None:
+    foreign_keys = {
+        constraint.columns[0].name: constraint
+        for constraint in ObraSocial.__table__.foreign_key_constraints
+    }
+    assert "consultorio_id" in foreign_keys
+    assert foreign_keys["consultorio_id"].referred_table.name == "consultorios"
