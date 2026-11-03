@@ -11,6 +11,7 @@ Usage:
 import asyncio
 import os
 import uuid
+from decimal import Decimal
 
 import bcrypt
 from sqlalchemy import select, text
@@ -19,7 +20,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.settings import load_settings
 from app.infrastructure.db import create_engine, create_session_factory
-from app.models import Consultorio, Rol, Usuario, UsuarioRol
+from app.models import (
+    Consultorio,
+    Prestacion,
+    Rol,
+    Sillon,
+    Usuario,
+    UsuarioRol,
+)
 
 ROLES: tuple[str, ...] = (
     "administrador",
@@ -32,6 +40,49 @@ CONSULTORIO_DEMO_SLUG = "demo"
 CONSULTORIO_DEMO_NOMBRE = "Consultorio Demo"
 ADMIN_EMAIL = "admin@clinica.test"
 ADMIN_NOMBRE = "Administrador Demo"
+
+# Fictional demo catalogue (04_modelo_de_datos.md §Seed). ENDO exercises
+# RN-TU-08 without ever charging a real deposit (R-12).
+SILLONES_DEMO: tuple[str, ...] = ("Sillón 1", "Sillón 2")
+PRESTACIONES_DEMO: tuple[dict[str, object], ...] = (
+    {
+        "codigo": "CONS",
+        "nombre": "Consulta odontológica",
+        "duracion_min": 30,
+        "precio_base": Decimal("12000.00"),
+        "especialidad": "general",
+    },
+    {
+        "codigo": "LIM",
+        "nombre": "Limpieza dental",
+        "duracion_min": 45,
+        "precio_base": Decimal("18000.00"),
+        "especialidad": "general",
+    },
+    {
+        "codigo": "OBT",
+        "nombre": "Obturación",
+        "duracion_min": 60,
+        "precio_base": Decimal("25000.00"),
+        "especialidad": "general",
+    },
+    {
+        "codigo": "ENDO",
+        "nombre": "Endodoncia",
+        "duracion_min": 90,
+        "precio_base": Decimal("60000.00"),
+        "especialidad": "endodoncia",
+        "requiere_sena": True,
+        "monto_sena": Decimal("10000.00"),
+    },
+    {
+        "codigo": "EXO",
+        "nombre": "Extracción",
+        "duracion_min": 60,
+        "precio_base": Decimal("30000.00"),
+        "especialidad": "cirugia",
+    },
+)
 
 # Partial unique indexes only cover active rows; ON CONFLICT must be told so.
 _ACTIVO = text("deleted_at IS NULL")
@@ -68,6 +119,41 @@ async def run_seed(session: AsyncSession, admin_password: str) -> None:
         )
         .on_conflict_do_nothing(index_elements=["slug"], index_where=_ACTIVO)
     )
+
+    consultorio_id = await session.scalar(
+        select(Consultorio.id).where(
+            Consultorio.slug == CONSULTORIO_DEMO_SLUG,
+            Consultorio.deleted_at.is_(None),
+        )
+    )
+    if consultorio_id is None:  # pragma: no cover - defensive
+        raise RuntimeError(
+            "El seed no pudo resolver el consultorio demo; "
+            "revisar las restricciones de unicidad."
+        )
+
+    for nombre in SILLONES_DEMO:
+        await session.execute(
+            insert(Sillon)
+            .values(
+                id=uuid.uuid4(),
+                consultorio_id=consultorio_id,
+                nombre=nombre,
+            )
+            .on_conflict_do_nothing(
+                index_elements=["consultorio_id", "nombre"],
+                index_where=_ACTIVO,
+            )
+        )
+
+    for datos in PRESTACIONES_DEMO:
+        await session.execute(
+            insert(Prestacion)
+            .values(id=uuid.uuid4(), **datos)
+            .on_conflict_do_nothing(
+                index_elements=["codigo"], index_where=_ACTIVO
+            )
+        )
 
     # The hash is computed for the insert attempt only: if the row already
     # exists the conflict is ignored, so a re-run never changes credentials.

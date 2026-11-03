@@ -184,12 +184,12 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux/Integ.)    │ A
 > C-04 y C-05 corren en paralelo (GATE 3). C-06 hace JOIN de ambas.
 
 ### [C-04] `recursos-agendables`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado 2026-11-02 (archivado en `openspec/changes/archive/`) — 188 tests en verde
 - **Scope**: Recursos de oferta + catálogo de prestaciones + bloqueos
-  - Modelos: `Profesional (matrícula, especialidades[], agenda_config), Sillon, ProfesionalSillon, Prestacion (código, duración_min, precio_base, requiere_seña, monto_seña), Bloqueo (profesional/sillon, desde/hasta, motivo)`
+  - Modelos: `Profesional (matrícula, especialidades[], agenda_config), Sillon, ProfesionalSillon, Prestacion (código, duración_min, precio_base, requiere_sena, monto_sena), Bloqueo (profesional/sillon, desde/hasta, motivo)`
   - Endpoints CRUD: `/profesionales, /sillones, /prestaciones, /bloqueos` (+ disponibilidad base desde `agenda_config`)
-  - Validaciones: duraciones positivas, `monto_seña` obligatorio si `requiere_seña=true` (RN-TU-08 visible)
-  - Migración 002: tablas de recursos + índices
+  - Validaciones: duraciones positivas, `monto_sena` obligatorio y positivo si `requiere_sena=true` (RN-TU-08 visible)
+  - Migración `0004_recursos_agendables`: tablas de recursos + índices
   - Seed: 1 consultorio demo con 2 sillones; catálogo mínimo (consulta, limpieza, obturación, endodoncia, extracción) con duraciones y precios ficticios
   - Tests: CRUD por rol, duración inválida 422, seña sin monto 422
 - **Dependencias**: C-03

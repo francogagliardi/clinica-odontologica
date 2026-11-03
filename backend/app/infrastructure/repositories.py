@@ -5,16 +5,23 @@ physical-delete operation: business entities are soft-deleted only.
 """
 
 import uuid
+from datetime import datetime
 from typing import Generic, TypeVar
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, or_, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
     Base,
+    Bloqueo,
     Consultorio,
+    Prestacion,
+    Profesional,
+    ProfesionalSillon,
     RegistroAuditoria,
     Rol,
+    Sillon,
     Usuario,
 )
 from app.models.base import AuditMixin
@@ -63,6 +70,16 @@ class BaseRepository(Generic[T]):
 class ConsultorioRepository(BaseRepository[Consultorio]):
     model = Consultorio
 
+    async def get_by_slug(
+        self, slug: str, include_inactive: bool = False
+    ) -> Consultorio | None:
+        """Resolve a consultorio by its stable slug (demo tenant in v1)."""
+        statement = select(Consultorio).where(Consultorio.slug == slug)
+        if not include_inactive:
+            statement = statement.where(Consultorio.deleted_at.is_(None))
+        result = await self._session.scalars(statement)
+        return result.first()
+
 
 class RolRepository(BaseRepository[Rol]):
     model = Rol
@@ -105,4 +122,182 @@ class AuditoriaRepository:
 
     async def list(self) -> list[RegistroAuditoria]:
         result = await self._session.scalars(select(RegistroAuditoria))
+        return list(result)
+
+
+class ProfesionalRepository(BaseRepository[Profesional]):
+    model = Profesional
+
+    async def get_by_matricula(
+        self,
+        consultorio_id: uuid.UUID,
+        matricula: str,
+        exclude_id: uuid.UUID | None = None,
+    ) -> Profesional | None:
+        statement = select(Profesional).where(
+            Profesional.consultorio_id == consultorio_id,
+            Profesional.matricula == matricula,
+            Profesional.deleted_at.is_(None),
+        )
+        if exclude_id is not None:
+            statement = statement.where(Profesional.id != exclude_id)
+        result = await self._session.scalars(statement)
+        return result.first()
+
+    async def get_by_usuario(
+        self,
+        usuario_id: uuid.UUID,
+        exclude_id: uuid.UUID | None = None,
+    ) -> Profesional | None:
+        statement = select(Profesional).where(
+            Profesional.usuario_id == usuario_id,
+            Profesional.deleted_at.is_(None),
+        )
+        if exclude_id is not None:
+            statement = statement.where(Profesional.id != exclude_id)
+        result = await self._session.scalars(statement)
+        return result.first()
+
+    async def list_by_consultorio(
+        self, consultorio_id: uuid.UUID
+    ) -> list[Profesional]:
+        result = await self._session.scalars(
+            select(Profesional).where(
+                Profesional.consultorio_id == consultorio_id,
+                Profesional.deleted_at.is_(None),
+            )
+        )
+        return list(result)
+
+
+class SillonRepository(BaseRepository[Sillon]):
+    model = Sillon
+
+    async def get_by_nombre(
+        self,
+        consultorio_id: uuid.UUID,
+        nombre: str,
+        exclude_id: uuid.UUID | None = None,
+    ) -> Sillon | None:
+        statement = select(Sillon).where(
+            Sillon.consultorio_id == consultorio_id,
+            Sillon.nombre == nombre,
+            Sillon.deleted_at.is_(None),
+        )
+        if exclude_id is not None:
+            statement = statement.where(Sillon.id != exclude_id)
+        result = await self._session.scalars(statement)
+        return result.first()
+
+    async def list_by_consultorio(
+        self, consultorio_id: uuid.UUID
+    ) -> list[Sillon]:
+        result = await self._session.scalars(
+            select(Sillon).where(
+                Sillon.consultorio_id == consultorio_id,
+                Sillon.deleted_at.is_(None),
+            )
+        )
+        return list(result)
+
+
+class ProfesionalSillonRepository:
+    """Idempotent habilitation link (composite PK, no soft delete)."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def add(
+        self, profesional_id: uuid.UUID, sillon_id: uuid.UUID
+    ) -> None:
+        await self._session.execute(
+            insert(ProfesionalSillon)
+            .values(profesional_id=profesional_id, sillon_id=sillon_id)
+            .on_conflict_do_nothing(
+                index_elements=["profesional_id", "sillon_id"]
+            )
+        )
+
+    async def delete(
+        self, profesional_id: uuid.UUID, sillon_id: uuid.UUID
+    ) -> None:
+        await self._session.execute(
+            delete(ProfesionalSillon).where(
+                ProfesionalSillon.profesional_id == profesional_id,
+                ProfesionalSillon.sillon_id == sillon_id,
+            )
+        )
+
+    async def list_sillon_ids(
+        self, profesional_id: uuid.UUID
+    ) -> list[uuid.UUID]:
+        result = await self._session.scalars(
+            select(ProfesionalSillon.sillon_id).where(
+                ProfesionalSillon.profesional_id == profesional_id
+            )
+        )
+        return list(result)
+
+
+class PrestacionRepository(BaseRepository[Prestacion]):
+    model = Prestacion
+
+    async def get_by_codigo(
+        self, codigo: str, exclude_id: uuid.UUID | None = None
+    ) -> Prestacion | None:
+        statement = select(Prestacion).where(
+            Prestacion.codigo == codigo,
+            Prestacion.deleted_at.is_(None),
+        )
+        if exclude_id is not None:
+            statement = statement.where(Prestacion.id != exclude_id)
+        result = await self._session.scalars(statement)
+        return result.first()
+
+
+class BloqueoRepository(BaseRepository[Bloqueo]):
+    model = Bloqueo
+
+    async def list_vigentes(
+        self,
+        *,
+        profesional_id: uuid.UUID | None = None,
+        sillon_id: uuid.UUID | None = None,
+        desde: datetime | None = None,
+        hasta: datetime | None = None,
+    ) -> list[Bloqueo]:
+        """Active blocks, optionally filtered by resource and overlap window."""
+        statement = select(Bloqueo).where(Bloqueo.deleted_at.is_(None))
+        if profesional_id is not None:
+            statement = statement.where(
+                Bloqueo.profesional_id == profesional_id
+            )
+        if sillon_id is not None:
+            statement = statement.where(Bloqueo.sillon_id == sillon_id)
+        if desde is not None:
+            statement = statement.where(Bloqueo.hasta > desde)
+        if hasta is not None:
+            statement = statement.where(Bloqueo.desde < hasta)
+        result = await self._session.scalars(statement)
+        return list(result)
+
+    async def list_para_disponibilidad(
+        self,
+        *,
+        profesional_id: uuid.UUID,
+        sillon_id: uuid.UUID | None,
+        desde: datetime,
+        hasta: datetime,
+    ) -> list[Bloqueo]:
+        """Blocks of the professional plus, if given, those of the chair."""
+        recursos = [Bloqueo.profesional_id == profesional_id]
+        if sillon_id is not None:
+            recursos.append(Bloqueo.sillon_id == sillon_id)
+        statement = select(Bloqueo).where(
+            Bloqueo.deleted_at.is_(None),
+            Bloqueo.hasta > desde,
+            Bloqueo.desde < hasta,
+            or_(*recursos),
+        )
+        result = await self._session.scalars(statement)
         return list(result)

@@ -88,7 +88,7 @@ def test_upgrade_crea_tablas_columnas_e_indices(engine) -> None:
 
     async def scenario() -> None:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0003_tokens_un_solo_uso"
+        assert snapshot["version"] == "0004_recursos_agendables"
         assert snapshot["tables"] == set(Base.metadata.tables) | {
             "alembic_version"
         }
@@ -141,6 +141,9 @@ def test_indices_unicos_son_parciales(engine) -> None:
             "uq_consultorios_slug_activo",
             "uq_roles_nombre_activo",
             "uq_usuarios_email_activo",
+            "uq_profesionales_matricula_activo",
+            "uq_sillones_nombre_activo",
+            "uq_prestaciones_codigo_activo",
         ):
             assert "WHERE (deleted_at IS NULL)" in indexes[name], name
 

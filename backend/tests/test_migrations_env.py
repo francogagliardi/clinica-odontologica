@@ -37,11 +37,11 @@ def test_baseline_revision_carries_zero_domain_ddl() -> None:
 
 
 def test_single_head_revision() -> None:
-    """The revision graph has exactly one head (C-03 extends the chain)."""
+    """The revision graph has exactly one head (C-04 extends the chain)."""
     config = Config(str(_BACKEND_DIR / "alembic.ini"))
     config.set_main_option("script_location", str(_BACKEND_DIR / "alembic"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["0003_tokens_un_solo_uso"]
+    assert script.get_heads() == ["0004_recursos_agendables"]
 
 
 def test_c02_revision_chains_from_baseline() -> None:
@@ -59,3 +59,14 @@ def test_c03_revision_chains_from_c02() -> None:
     ).read_text(encoding="utf-8")
     assert 'down_revision: str | None = "0002_core_models_seguridad"' in source
     assert "tokens_un_solo_uso" in source
+
+
+def test_c04_revision_chains_from_c03() -> None:
+    """0004 adds agenda resources and the service catalogue."""
+    source = (
+        _BACKEND_DIR / "alembic" / "versions" / "0004_recursos_agendables.py"
+    ).read_text(encoding="utf-8")
+    assert 'down_revision: str | None = "0003_tokens_un_solo_uso"' in source
+    assert "profesionales" in source
+    assert "prestaciones" in source
+    assert "bloqueos" in source

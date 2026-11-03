@@ -134,3 +134,39 @@ def require_role(*allowed_roles: str) -> Callable[..., Usuario]:
         return current_user
 
     return role_checker
+
+
+def reject_unexpected_query_except(
+    *allowed: str,
+) -> Callable[[Request], object]:
+    """Strict-boundary guard for endpoints that declare query parameters.
+
+    Unlike `reject_unexpected_query`, it accepts an explicit allow-list so a
+    typo in a filter name is rejected with 422 instead of being ignored.
+    """
+
+    async def checker(request: Request) -> None:
+        unexpected = set(request.query_params) - set(allowed)
+        if unexpected:
+            raise HTTPException(
+                status_code=422, detail="Unexpected query parameters"
+            )
+
+    return checker
+
+
+async def get_consultorio_demo_id(
+    uow: Annotated[UnitOfWork, Depends(get_uow)],
+) -> uuid.UUID:
+    """Resolve the demo consultorio (single tenant in v1).
+
+    Creating agenda resources without a tenant would leave orphan rows, so the
+    request fails loudly if the seed was never run.
+    """
+    consultorio = await uow.consultorios.get_by_slug("demo")
+    if consultorio is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El consultorio demo no está inicializado; correr el seed",
+        )
+    return consultorio.id

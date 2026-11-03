@@ -11,10 +11,11 @@ tests exercise the same DDL that ships to the environment (R-04).
 import os
 import subprocess
 import sys
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -23,6 +24,9 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import NullPool
 
+from app.api.deps import get_uow
+from app.infrastructure.uow import UnitOfWork
+from app.main import app
 from tests.integration.helpers import reset_schema, run
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -71,3 +75,21 @@ def session_factory(
     engine: AsyncEngine,
 ) -> async_sessionmaker[AsyncSession]:
     return async_sessionmaker(engine, expire_on_commit=False)
+
+
+@pytest.fixture
+def api_client(
+    migrated_database: str,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> Iterator[TestClient]:
+    """TestClient whose UnitOfWork uses the disposable test database."""
+
+    async def override_get_uow() -> AsyncIterator[UnitOfWork]:
+        uow = UnitOfWork(session_factory)
+        async with uow:
+            yield uow
+
+    app.dependency_overrides[get_uow] = override_get_uow
+    client = TestClient(app, raise_server_exceptions=True)
+    yield client
+    app.dependency_overrides.clear()

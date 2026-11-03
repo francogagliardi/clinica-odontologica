@@ -10,8 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.infrastructure.repositories import (
     AuditoriaRepository,
+    BloqueoRepository,
     ConsultorioRepository,
+    PrestacionRepository,
+    ProfesionalRepository,
+    ProfesionalSillonRepository,
     RolRepository,
+    SillonRepository,
     UsuarioRepository,
 )
 
@@ -29,6 +34,11 @@ class UnitOfWork:
         self.roles = RolRepository(self._session)
         self.usuarios = UsuarioRepository(self._session)
         self.auditoria = AuditoriaRepository(self._session)
+        self.profesionales = ProfesionalRepository(self._session)
+        self.sillones = SillonRepository(self._session)
+        self.profesionales_sillones = ProfesionalSillonRepository(self._session)
+        self.prestaciones = PrestacionRepository(self._session)
+        self.bloqueos = BloqueoRepository(self._session)
         return self
 
     async def __aexit__(

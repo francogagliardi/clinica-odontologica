@@ -6,8 +6,15 @@ import bcrypt
 import pytest
 from sqlalchemy import func, select
 
-from app.models import Consultorio, Rol, Usuario, UsuarioRol
-from app.seed import ADMIN_EMAIL, ROLES, main, run_seed
+from app.models import Consultorio, Prestacion, Rol, Sillon, Usuario, UsuarioRol
+from app.seed import (
+    ADMIN_EMAIL,
+    PRESTACIONES_DEMO,
+    ROLES,
+    SILLONES_DEMO,
+    main,
+    run_seed,
+)
 from tests.integration.helpers import run
 
 
@@ -74,7 +81,7 @@ def test_cli_sin_variable_de_entorno_aborta(monkeypatch) -> None:
 
 
 def test_seed_es_idempotente(session_factory) -> None:
-    """Edge: re-running duplicates neither roles, users nor links."""
+    """Edge: re-running duplicates neither roles, users, links nor catalogue."""
 
     async def scenario() -> None:
         await _seed(session_factory, "demo-secret-123")
@@ -84,6 +91,54 @@ def test_seed_es_idempotente(session_factory) -> None:
         assert await _count(session_factory, Consultorio) == 1
         assert await _count(session_factory, Usuario) == 1
         assert await _count(session_factory, UsuarioRol) == 1
+        assert await _count(session_factory, Sillon) == len(SILLONES_DEMO)
+        assert await _count(session_factory, Prestacion) == len(
+            PRESTACIONES_DEMO
+        )
+
+    run(scenario())
+
+
+def test_seed_incluye_catalogo_minimo_y_sena(session_factory) -> None:
+    """Expected: two chairs and five fictional services; ENDO requires deposit."""
+
+    async def scenario() -> None:
+        await _seed(session_factory, "demo-secret-123")
+
+        async with session_factory() as session:
+            sillones = set(await session.scalars(select(Sillon.nombre)))
+            assert sillones == set(SILLONES_DEMO)
+
+            prestaciones = {
+                prestacion.codigo: prestacion
+                for prestacion in await session.scalars(select(Prestacion))
+            }
+            assert set(prestaciones) == {
+                "CONS",
+                "LIM",
+                "OBT",
+                "ENDO",
+                "EXO",
+            }
+            assert {
+                codigo: prestacion.duracion_min
+                for codigo, prestacion in prestaciones.items()
+            } == {
+                "CONS": 30,
+                "LIM": 45,
+                "OBT": 60,
+                "ENDO": 90,
+                "EXO": 60,
+            }
+            endo = prestaciones["ENDO"]
+            assert endo.requiere_sena is True
+            assert endo.monto_sena is not None
+            assert endo.monto_sena > 0
+            assert all(
+                prestacion.requiere_sena is False
+                for codigo, prestacion in prestaciones.items()
+                if codigo != "ENDO"
+            )
 
     run(scenario())
 
@@ -128,5 +183,9 @@ def test_seed_concurrente_no_falla(session_factory) -> None:
         assert await _count(session_factory, Consultorio) == 1
         assert await _count(session_factory, Usuario) == 1
         assert await _count(session_factory, UsuarioRol) == 1
+        assert await _count(session_factory, Sillon) == len(SILLONES_DEMO)
+        assert await _count(session_factory, Prestacion) == len(
+            PRESTACIONES_DEMO
+        )
 
     run(scenario())
