@@ -10,6 +10,7 @@ import uuid
 from datetime import datetime, time
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -18,9 +19,10 @@ from sqlalchemy import (
     String,
     Time,
     Uuid,
+    func,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, ExcludeConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import AuditMixin, Base
@@ -29,6 +31,15 @@ _LOWA_LOGICA = "(deleted_at IS NULL) = is_active"
 _DIAS_EN_RANGO = "dias_atencion <@ ARRAY[0,1,2,3,4,5,6]::integer[]"
 _XOR_RECURSO = (
     "(profesional_id IS NOT NULL) <> (sillon_id IS NOT NULL)"
+)
+_ESTADOS_TURNO = (
+    "'reservado','confirmado','en_sala','atendido','cancelado','ausente'"
+)
+_ORIGENES_TURNO = "'recepcion','online','whatsapp'"
+_ESTADOS_ACTIVOS = "'reservado','confirmado','en_sala','atendido'"
+_PREDICADO_EXCLUSION = (
+    "deleted_at IS NULL AND NOT es_sobreturno "
+    f"AND estado IN ({_ESTADOS_ACTIVOS})"
 )
 
 
@@ -163,3 +174,113 @@ class Bloqueo(Base, AuditMixin):
         DateTime(timezone=True), nullable=False
     )
     motivo: Mapped[str] = mapped_column(String(200), nullable=False)
+
+
+class Turno(Base, AuditMixin):
+    """Appointment: the heart of the agenda (RN-TU-01/02/06/07).
+
+    Anti-overlap is a PostgreSQL exclusion constraint, not only an application
+    check: two normal rows cannot share a professional or a chair at the same
+    time. Sobreturnos are excluded from the index on purpose and must carry a
+    visible colour (RN-TU-06).
+    """
+
+    __tablename__ = "turnos"
+    __table_args__ = (
+        CheckConstraint(_LOWA_LOGICA, name="baja_logica_coherente"),
+        CheckConstraint("fin > inicio", name="rango_coherente"),
+        CheckConstraint(f"estado IN ({_ESTADOS_TURNO})", name="estado_valido"),
+        CheckConstraint(
+            f"origen IN ({_ORIGENES_TURNO})", name="origen_valido"
+        ),
+        CheckConstraint(
+            "es_sobreturno = (color_sobreturno IS NOT NULL)",
+            name="sobreturno_coherente",
+        ),
+        CheckConstraint(
+            "color_sobreturno IS NULL "
+            "OR color_sobreturno ~ '^#[0-9A-Fa-f]{6}$'",
+            name="color_sobreturno_formato",
+        ),
+        Index("ix_turnos_profesional_inicio", "profesional_id", "inicio"),
+        Index("ix_turnos_sillon_inicio", "sillon_id", "inicio"),
+        Index("ix_turnos_estado", "estado"),
+        Index(
+            "uq_turnos_token_publico",
+            "token_publico",
+            unique=True,
+            postgresql_where=text("token_publico IS NOT NULL"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid4
+    )
+    consultorio_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("consultorios.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    paciente_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("pacientes.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    profesional_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("profesionales.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    sillon_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("sillones.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    prestacion_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("prestaciones.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    inicio: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    fin: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    estado: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="reservado",
+        server_default=text("'reservado'"),
+    )
+    origen: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="recepcion",
+        server_default=text("'recepcion'"),
+    )
+    es_sobreturno: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    color_sobreturno: Mapped[str | None] = mapped_column(
+        String(7), nullable=True
+    )
+    token_publico: Mapped[str | None] = mapped_column(
+        String(64), nullable=True
+    )
+
+
+# Expression-based exclusion constraints need the table columns already built.
+for _nombre, _recurso in (
+    ("ex_turnos_profesional", Turno.profesional_id),
+    ("ex_turnos_sillon", Turno.sillon_id),
+):
+    Turno.__table__.append_constraint(
+        ExcludeConstraint(
+            (_recurso, "="),
+            (func.tstzrange(Turno.inicio, Turno.fin, "[)"), "&&"),
+            using="gist",
+            where=text(_PREDICADO_EXCLUSION),
+            name=_nombre,
+        )
+    )

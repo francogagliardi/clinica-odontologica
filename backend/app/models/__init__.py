@@ -5,6 +5,7 @@ from app.models.agenda import (
     Profesional,
     ProfesionalSillon,
     Sillon,
+    Turno,
 )
 from app.models.base import AuditMixin, Base
 from app.models.comercial import ObraSocial, Prestacion
@@ -32,6 +33,7 @@ __all__ = [
     "Rol",
     "Sillon",
     "TokenUnSoloUso",
+    "Turno",
     "Usuario",
     "UsuarioRol",
 ]

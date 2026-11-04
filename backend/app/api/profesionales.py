@@ -359,6 +359,12 @@ async def disponibilidad(
         desde=inicio_dia,
         hasta=fin_dia,
     )
+    turnos = await uow.turnos.list_activos_en_rango(
+        profesional_id=profesional.id,
+        sillon_id=sillon_id,
+        desde=inicio_dia,
+        hasta=fin_dia,
+    )
 
     slots = calcular_disponibilidad(
         fecha=fecha,
@@ -372,6 +378,10 @@ async def disponibilidad(
         bloqueos=[
             RangoBloqueo(desde=bloqueo.desde, hasta=bloqueo.hasta)
             for bloqueo in bloqueos
+        ],
+        turnos=[
+            RangoBloqueo(desde=turno.inicio, hasta=turno.fin)
+            for turno in turnos
         ],
     )
     return [SlotResponse(inicio=slot.inicio, fin=slot.fin) for slot in slots]

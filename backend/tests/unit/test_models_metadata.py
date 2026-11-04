@@ -1,6 +1,7 @@
 """Unit tests for the security model contract (no database required)."""
 
 from sqlalchemy import CheckConstraint, Uuid
+from sqlalchemy.dialects.postgresql import ExcludeConstraint
 
 from app.models import (
     Base,
@@ -15,6 +16,7 @@ from app.models import (
     Rol,
     Sillon,
     TokenUnSoloUso,
+    Turno,
     Usuario,
     UsuarioRol,
 )
@@ -33,6 +35,7 @@ EXPECTED_TABLES = {
     "bloqueos",
     "pacientes",
     "obras_sociales",
+    "turnos",
 }
 
 
@@ -64,6 +67,7 @@ def test_baja_logica_se_declara_en_entidades_de_negocio() -> None:
         Bloqueo,
         Paciente,
         ObraSocial,
+        Turno,
     ):
         columns = set(model.__table__.c.keys())
         assert {"is_active", "created_at", "updated_at", "deleted_at"} <= columns
@@ -88,6 +92,7 @@ def test_check_de_coherencia_de_baja_logica_declarado() -> None:
         Bloqueo,
         Paciente,
         ObraSocial,
+        Turno,
     ):
         checks = [
             constraint
@@ -263,3 +268,61 @@ def test_obra_social_referencia_el_consultorio() -> None:
     }
     assert "consultorio_id" in foreign_keys
     assert foreign_keys["consultorio_id"].referred_table.name == "consultorios"
+
+
+def test_turno_valida_rango_estados_origenes_y_sobreturno() -> None:
+    sqltext = " ".join(str(check.sqltext) for check in _checks(Turno))
+    assert "fin > inicio" in sqltext
+    assert "reservado" in sqltext and "ausente" in sqltext
+    assert "recepcion" in sqltext and "whatsapp" in sqltext
+    assert "es_sobreturno = (color_sobreturno IS NOT NULL)" in sqltext
+    assert "^#[0-9A-Fa-f]{6}$" in sqltext
+
+
+def test_turno_declara_exclusion_por_profesional_y_sillon() -> None:
+    excludes = {
+        constraint.name: constraint
+        for constraint in Turno.__table__.constraints
+        if isinstance(constraint, ExcludeConstraint)
+    }
+    assert set(excludes) == {"ex_turnos_profesional", "ex_turnos_sillon"}
+    for constraint in excludes.values():
+        where = str(constraint.where) if constraint.where is not None else ""
+        assert "NOT es_sobreturno" in where
+        assert "reservado" in where
+        assert "deleted_at IS NULL" in where
+
+
+def test_turno_declara_indices_de_agenda_y_token() -> None:
+    indexes = {
+        index.name: index
+        for table in Base.metadata.tables.values()
+        for index in table.indexes
+    }
+    expected = {
+        "ix_turnos_profesional_inicio",
+        "ix_turnos_sillon_inicio",
+        "ix_turnos_estado",
+        "uq_turnos_token_publico",
+    }
+    assert expected <= set(indexes)
+    assert [
+        column.name
+        for column in indexes["ix_turnos_profesional_inicio"].columns
+    ] == ["profesional_id", "inicio"]
+    assert [
+        column.name
+        for column in indexes["ix_turnos_sillon_inicio"].columns
+    ] == ["sillon_id", "inicio"]
+    token = indexes["uq_turnos_token_publico"]
+    assert token.unique is True
+    where = token.dialect_options["postgresql"].get("where")
+    assert str(where) == "token_publico IS NOT NULL"
+
+
+def test_consultorio_configura_el_plazo_de_cancelacion() -> None:
+    sqltext = " ".join(str(check.sqltext) for check in _checks(Consultorio))
+    assert "plazo_cancelacion_horas" in sqltext
+    columna = Consultorio.__table__.c.plazo_cancelacion_horas
+    assert columna.nullable is False
+    assert str(columna.server_default.arg) == "24"

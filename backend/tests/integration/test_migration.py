@@ -88,7 +88,7 @@ def test_upgrade_crea_tablas_columnas_e_indices(engine) -> None:
 
     async def scenario() -> None:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0005_pacientes_cobertura_base"
+        assert snapshot["version"] == "0006_turnos_anti_solapamiento"
         assert snapshot["tables"] == set(Base.metadata.tables) | {
             "alembic_version"
         }
@@ -148,6 +148,22 @@ def test_indices_unicos_son_parciales(engine) -> None:
             "uq_obras_sociales_nombre_activo",
         ):
             assert "WHERE (deleted_at IS NULL)" in indexes[name], name
+
+    run(scenario())
+
+
+def test_turnos_declara_exclusion_y_token_publico(engine) -> None:
+    """Business rule: anti-overlap lives in PostgreSQL, token unique when set."""
+
+    async def scenario() -> None:
+        assert {"ex_turnos_profesional", "ex_turnos_sillon"} <= set(
+            await _exclude_constraints(engine)
+        )
+        snapshot = await _snapshot(engine)
+        indexes: dict[str, str] = snapshot["indexes"]  # type: ignore[assignment]
+        assert "WHERE (token_publico IS NOT NULL)" in indexes[
+            "uq_turnos_token_publico"
+        ]
 
     run(scenario())
 
@@ -225,7 +241,7 @@ def test_c05_downgrade_y_upgrade_restaura_solo_sus_tablas(
         assert snapshot["version"] == "0004_recursos_agendables"
         assert snapshot["tables"] == (
             set(Base.metadata.tables)
-            - {"pacientes", "obras_sociales"}
+            - {"pacientes", "obras_sociales", "turnos"}
             | {"alembic_version"}
         )
         return snapshot
@@ -238,5 +254,49 @@ def test_c05_downgrade_y_upgrade_restaura_solo_sus_tablas(
         return await _snapshot(engine)
 
     restored = run(after_upgrade())
-    assert restored["version"] == "0005_pacientes_cobertura_base"
-    assert {"pacientes", "obras_sociales"} <= restored["tables"]
+    assert restored["version"] == "0006_turnos_anti_solapamiento"
+    assert {"pacientes", "obras_sociales", "turnos"} <= restored["tables"]
+
+
+def test_c06_downgrade_y_upgrade_restaura_turnos(
+    migrated_database: str, engine
+) -> None:
+    """Edge: 0006 ⇄ 0005 is reversible including the exclusion constraints."""
+
+    _alembic("downgrade", "0005_pacientes_cobertura_base", database_url=migrated_database)
+
+    async def after_downgrade() -> dict[str, object]:
+        snapshot = await _snapshot(engine)
+        assert snapshot["version"] == "0005_pacientes_cobertura_base"
+        assert "turnos" not in snapshot["tables"]
+        assert await _exclude_constraints(engine) == []
+        return snapshot
+
+    run(after_downgrade())
+
+    _alembic("upgrade", "head", database_url=migrated_database)
+
+    async def after_upgrade() -> dict[str, object]:
+        snapshot = await _snapshot(engine)
+        excludes = set(
+            await _exclude_constraints(engine)
+        )
+        assert snapshot["version"] == "0006_turnos_anti_solapamiento"
+        assert "turnos" in snapshot["tables"]
+        assert {"ex_turnos_profesional", "ex_turnos_sillon"} <= excludes
+        return snapshot
+
+    run(after_upgrade())
+
+
+async def _exclude_constraints(engine) -> list[str]:
+    async with engine.connect() as connection:
+        return list(
+            await connection.scalars(
+                text(
+                    "SELECT conname FROM pg_constraint "
+                    "WHERE contype = 'x' "
+                    "AND connamespace = 'public'::regnamespace"
+                )
+            )
+        )

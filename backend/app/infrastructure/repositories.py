@@ -12,6 +12,7 @@ from sqlalchemy import delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.turnos import ESTADOS_ACTIVOS
 from app.models import (
     Base,
     Bloqueo,
@@ -24,6 +25,7 @@ from app.models import (
     RegistroAuditoria,
     Rol,
     Sillon,
+    Turno,
     Usuario,
 )
 from app.models.base import AuditMixin
@@ -392,6 +394,84 @@ class BloqueoRepository(BaseRepository[Bloqueo]):
             Bloqueo.deleted_at.is_(None),
             Bloqueo.hasta > desde,
             Bloqueo.desde < hasta,
+            or_(*recursos),
+        )
+        result = await self._session.scalars(statement)
+        return list(result)
+
+
+class TurnoRepository(BaseRepository[Turno]):
+    model = Turno
+
+    async def list_rango(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: datetime,
+        hasta: datetime,
+        profesional_id: uuid.UUID | None = None,
+        sillon_id: uuid.UUID | None = None,
+        estado: str | None = None,
+    ) -> list[Turno]:
+        statement = select(Turno).where(
+            Turno.consultorio_id == consultorio_id,
+            Turno.deleted_at.is_(None),
+            Turno.inicio >= desde,
+            Turno.inicio < hasta,
+        )
+        if profesional_id is not None:
+            statement = statement.where(Turno.profesional_id == profesional_id)
+        if sillon_id is not None:
+            statement = statement.where(Turno.sillon_id == sillon_id)
+        if estado is not None:
+            statement = statement.where(Turno.estado == estado)
+        statement = statement.order_by(Turno.inicio)
+        result = await self._session.scalars(statement)
+        return list(result)
+
+    async def list_solapados(
+        self,
+        *,
+        consultorio_id: uuid.UUID,
+        profesional_id: uuid.UUID,
+        sillon_id: uuid.UUID,
+        inicio: datetime,
+        fin: datetime,
+        exclude_id: uuid.UUID | None = None,
+    ) -> list[Turno]:
+        """Active turns sharing the professional or the chair with the range."""
+        statement = select(Turno).where(
+            Turno.consultorio_id == consultorio_id,
+            Turno.deleted_at.is_(None),
+            Turno.estado.in_(tuple(ESTADOS_ACTIVOS)),
+            Turno.inicio < fin,
+            Turno.fin > inicio,
+            or_(
+                Turno.profesional_id == profesional_id,
+                Turno.sillon_id == sillon_id,
+            ),
+        )
+        if exclude_id is not None:
+            statement = statement.where(Turno.id != exclude_id)
+        result = await self._session.scalars(statement)
+        return list(result)
+
+    async def list_activos_en_rango(
+        self,
+        *,
+        profesional_id: uuid.UUID,
+        sillon_id: uuid.UUID | None,
+        desde: datetime,
+        hasta: datetime,
+    ) -> list[Turno]:
+        recursos = [Turno.profesional_id == profesional_id]
+        if sillon_id is not None:
+            recursos.append(Turno.sillon_id == sillon_id)
+        statement = select(Turno).where(
+            Turno.deleted_at.is_(None),
+            Turno.estado.in_(tuple(ESTADOS_ACTIVOS)),
+            Turno.inicio < hasta,
+            Turno.fin > desde,
             or_(*recursos),
         )
         result = await self._session.scalars(statement)

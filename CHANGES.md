@@ -222,12 +222,12 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux/Integ.)    │ A
 ---
 
 ### [C-06] `turnos-anti-solapamiento`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado 2026-11-03 (archivado en `openspec/changes/archive/`) — 367 tests en verde
 - **Scope**: Núcleo de agenda con garantía transaccional anti-solapamiento (US-002)
   - Modelo `Turno`: paciente/profesional/sillon/prestacion, inicio/fin, estado (`reservado/confirmado/en_sala/atendido/cancelado/ausente`), origen (`recepcion/online/whatsapp`), `token_publico`, máquina de estados validada
-  - `POST /turnos` + reprogramación: validación transaccional sin solapamiento por profesional NI por sillón (RN-TU-01); `fin = inicio + duración prestación` salvo sobreturno con marca explícita y color (RN-TU-06, nunca solapamiento silencioso); bloqueos impiden reserva (RN-TU-07); alta sin prestación usa duración base del profesional (RN-TU-02); plazo de cancelación configurable por consultorio (RN-TU-03)
+  - `POST /turnos` + reprogramación: validación transaccional sin solapamiento por profesional NI por sillón (RN-TU-01) con `btree_gist` + exclusion constraints; `fin = inicio + duración prestación` salvo sobreturno con marca explícita y color (RN-TU-06, nunca solapamiento silencioso); bloqueos impiden reserva (RN-TU-07); alta sin prestación usa duración base del profesional (RN-TU-02); plazo de cancelación configurable por consultorio (RN-TU-03)
   - Índices: `(profesional_id, inicio), (sillon_id, inicio), estado`; columna `token_publico` única
-  - Migración 004: tabla turnos + índices de exclusión
+  - Migración `0006_turnos_anti_solapamiento`: tabla turnos + extension `btree_gist` + constraints de exclusión
   - Tests: reserva concurrente al mismo slot (una gana, otra 409), sobreturno sin marca 422, reserva en bloqueo 409, transición de estado inválida 422
 - **Dependencias**: C-04, C-05
 - **Governance**: CRITICO

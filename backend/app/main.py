@@ -16,6 +16,7 @@ from app.api import (
     profesionales,
     ready,
     sillones,
+    turnos,
 )
 from app.core import resources
 from app.core.settings import load_settings
@@ -53,3 +54,4 @@ app.include_router(prestaciones.router)
 app.include_router(bloqueos.router)
 app.include_router(pacientes.router)
 app.include_router(obras_sociales.router)
+app.include_router(turnos.router)

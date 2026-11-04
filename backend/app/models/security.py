@@ -14,6 +14,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     String,
     Uuid,
     func,
@@ -32,6 +33,10 @@ class Consultorio(Base, AuditMixin):
     __tablename__ = "consultorios"
     __table_args__ = (
         CheckConstraint(_LOWA_LOGICA, name="baja_logica_coherente"),
+        CheckConstraint(
+            "plazo_cancelacion_horas BETWEEN 0 AND 720",
+            name="plazo_cancelacion_valido",
+        ),
         Index(
             "uq_consultorios_slug_activo",
             "slug",
@@ -45,6 +50,12 @@ class Consultorio(Base, AuditMixin):
     )
     nombre: Mapped[str] = mapped_column(String(120), nullable=False)
     slug: Mapped[str] = mapped_column(String(60), nullable=False)
+    plazo_cancelacion_horas: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=24,
+        server_default=text("24"),
+    )
 
 
 class Rol(Base, AuditMixin):

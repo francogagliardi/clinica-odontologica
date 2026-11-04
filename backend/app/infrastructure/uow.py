@@ -19,6 +19,7 @@ from app.infrastructure.repositories import (
     ProfesionalSillonRepository,
     RolRepository,
     SillonRepository,
+    TurnoRepository,
     UsuarioRepository,
 )
 
@@ -43,6 +44,7 @@ class UnitOfWork:
         self.bloqueos = BloqueoRepository(self._session)
         self.obras_sociales = ObraSocialRepository(self._session)
         self.pacientes = PacienteRepository(self._session)
+        self.turnos = TurnoRepository(self._session)
         return self
 
     async def __aexit__(

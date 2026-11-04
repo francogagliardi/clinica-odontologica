@@ -73,9 +73,9 @@ El sistema SHALL permitir administrar los sillones del consultorio (nombre únic
 
 ### Requirement: Disponibilidad base por profesional
 
-El sistema SHALL calcular los slots disponibles de un profesional para una fecha: día fuera de `dias_atencion` devuelve lista vacía; la duración es la de la prestación o `duracion_base_min` (RN-TU-02); genera intervalos consecutivos descartando el último incompleto; y excluye los solapados con bloqueos del profesional o del sillón (RN-TU-07). No considera turnos (C-06).
+El sistema SHALL calcular los slots disponibles de un profesional para una fecha: día fuera de `dias_atencion` devuelve lista vacía; la duración es la de la prestación o `duracion_base_min` (RN-TU-02); genera intervalos consecutivos descartando el último incompleto; y excluye los solapados con bloqueos del profesional o del sillón (RN-TU-07) y con turnos en estado activo (RN-TU-01). Con C-06 la disponibilidad es real, no solo base.
 
-**Trazabilidad**: RN-TU-02, RN-TU-07, `06_funcionalidades.md` US-001/CA-1, `07_flujos_principales.md` §Flujo 1.
+**Trazabilidad**: RN-TU-01, RN-TU-02, RN-TU-07, `06_funcionalidades.md` US-001/CA-1, `07_flujos_principales.md` §Flujo 1.
 
 #### Scenario: Slots consecutivos con la duración de la prestación
 - **WHEN** se consulta `GET /profesionales/{id}/disponibilidad?fecha=...&prestacion_id=...` para un día habilitado
@@ -101,3 +101,19 @@ El sistema SHALL calcular los slots disponibles de un profesional para una fecha
 #### Scenario: Fecha o prestación inválida en el borde
 - **WHEN** la consulta envía una fecha con formato inválido, parámetros extra, o una `prestacion_id` inexistente/inactiva
 - **THEN** el sistema responde HTTP 422 para el borde y HTTP 404 para la prestación inexistente/inactiva, sin calcular slots
+
+#### Scenario: Turno activo ocupa el slot
+- **WHEN** un turno `reservado`, `confirmado`, `en_sala` o `atendido` se solapa con un slot calculado
+- **THEN** ese slot no aparece en la respuesta de disponibilidad
+
+#### Scenario: Cancelación o ausencia libera el slot
+- **WHEN** el turno que ocupaba el slot pasa a `cancelado` o `ausente`
+- **THEN** el slot vuelve a aparecer como disponible
+
+#### Scenario: Turno de otro profesional no afecta
+- **WHEN** existe un turno activo en el mismo horario pero de otro profesional
+- **THEN** el slot del profesional consultado sigue disponible
+
+#### Scenario: Día completo sin huecos
+- **WHEN** todos los slots del día están ocupados por turnos activos o bloqueos
+- **THEN** el sistema responde HTTP 200 con lista vacía

@@ -1,8 +1,7 @@
-"""Pure availability calculation (C-04, RN-TU-02, RN-TU-07).
+"""Pure availability calculation (C-04/C-06, RN-TU-01/02/07).
 
-No I/O: C-06 reuses this function to discount existing appointments and to
-validate anti-overlap. Time zone is the fixed Argentina offset (UTC-3, no DST)
-for v1; the per-consultorio zone arrives with C-06.
+No I/O: C-06 reuses this function to discount existing appointments and blocks.
+Time zone is the fixed Argentina offset (UTC-3, no DST) for v1.
 """
 
 from dataclasses import dataclass
@@ -56,14 +55,16 @@ def calcular_disponibilidad(
     agenda: AgendaConfig,
     duracion_min: int | None = None,
     bloqueos: tuple[RangoBloqueo, ...] | list[RangoBloqueo] = (),
+    turnos: tuple[RangoBloqueo, ...] | list[RangoBloqueo] = (),
 ) -> list[Slot]:
-    """Return consecutive free slots for `fecha`, excluding blocks.
+    """Return consecutive free slots for `fecha`, excluding blocks and turns.
 
     - A weekday outside `dias_atencion` yields no slots.
     - The slot duration is the service duration or the professional base one
       (RN-TU-02).
     - The last slot is discarded when it does not fit before `hora_hasta`.
-    - Slots overlapping a block are excluded (RN-TU-07).
+    - Slots overlapping a block (RN-TU-07) or an active turn (RN-TU-01) are
+      excluded.
     """
     if fecha.weekday() not in agenda.dias_atencion:
         return []
@@ -83,11 +84,12 @@ def calcular_disponibilidad(
         fecha, agenda.hora_hasta, tzinfo=ARGENTINA_OFFSET
     )
     paso = timedelta(minutes=duracion)
+    ocupados = tuple(bloqueos) + tuple(turnos)
 
     slots: list[Slot] = []
     while cursor + paso <= limite:
         fin = cursor + paso
-        if not any(_se_solapa(cursor, fin, bloqueo) for bloqueo in bloqueos):
+        if not any(_se_solapa(cursor, fin, rango) for rango in ocupados):
             slots.append(Slot(inicio=cursor, fin=fin))
         cursor = fin
     return slots
