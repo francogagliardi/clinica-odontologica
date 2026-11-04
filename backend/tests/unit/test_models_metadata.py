@@ -15,11 +15,13 @@ from app.models import (
     Evolucion,
     HallazgoDental,
     HistoriaClinica,
+    ItemPresupuesto,
     MensajeWhatsApp,
     ObraSocial,
     Odontograma,
     Paciente,
     Prestacion,
+    Presupuesto,
     Profesional,
     ProfesionalSillon,
     Recordatorio,
@@ -56,6 +58,8 @@ EXPECTED_TABLES = {
     "hallazgos_dentales",
     "adjuntos",
     "consentimientos",
+    "presupuestos",
+    "items_presupuesto",
 }
 
 
@@ -93,6 +97,8 @@ def test_baja_logica_se_declara_en_entidades_de_negocio() -> None:
         Evolucion,
         Adjunto,
         Consentimiento,
+        Presupuesto,
+        ItemPresupuesto,
     ):
         columns = set(model.__table__.c.keys())
         assert {"is_active", "created_at", "updated_at", "deleted_at"} <= columns
@@ -123,6 +129,8 @@ def test_check_de_coherencia_de_baja_logica_declarado() -> None:
         Evolucion,
         Adjunto,
         Consentimiento,
+        Presupuesto,
+        ItemPresupuesto,
     ):
         checks = [
             constraint
@@ -697,3 +705,128 @@ def test_consentimiento_declara_formato_de_hashes() -> None:
 def test_tablas_append_only_no_admiten_baja_fisica_por_orm() -> None:
     for model in (Odontograma, HallazgoDental):
         assert "is_active" not in model.__table__.c
+
+
+# --- C-12 budget metadata ---------------------------------------------------
+
+
+def test_presupuesto_declara_columnas_y_referencias() -> None:
+    columns = Presupuesto.__table__.c
+    assert {
+        "id",
+        "consultorio_id",
+        "paciente_id",
+        "profesional_id",
+        "creado_por",
+        "estado",
+        "cobertura_estado",
+        "subtotal",
+        "cobertura_calculada",
+        "copago",
+    } <= set(columns.keys())
+    assert columns.estado.nullable is False
+    assert columns.estado.default.arg == "borrador"
+    assert str(columns.estado.server_default.arg) == "'borrador'"
+    assert columns.cobertura_estado.default.arg == "calculada"
+    for importe in ("subtotal", "cobertura_calculada", "copago"):
+        assert columns[importe].type.precision == 12
+        assert columns[importe].type.scale == 2
+        assert columns[importe].nullable is False
+
+    foreign_keys = {
+        constraint.columns[0].name: constraint
+        for constraint in Presupuesto.__table__.foreign_key_constraints
+    }
+    assert {
+        "consultorio_id": "consultorios",
+        "paciente_id": "pacientes",
+        "profesional_id": "profesionales",
+        "creado_por": "usuarios",
+    } == {
+        column: foreign_keys[column].referred_table.name
+        for column in (
+            "consultorio_id",
+            "paciente_id",
+            "profesional_id",
+            "creado_por",
+        )
+    }
+
+
+def test_presupuesto_valida_estado_cobertura_y_totales() -> None:
+    sqltext = " ".join(str(check.sqltext) for check in _checks(Presupuesto))
+    assert "estado IN (" in sqltext
+    assert "borrador" in sqltext and "finalizado" in sqltext
+    assert "cobertura_estado IN (" in sqltext
+    assert "pendiente_verificacion" in sqltext
+    assert "subtotal >= 0" in sqltext
+    assert "cobertura_calculada >= 0" in sqltext
+    assert "copago >= 0" in sqltext
+    assert "subtotal = cobertura_calculada + copago" in sqltext
+    assert "(deleted_at IS NULL) = is_active" in sqltext
+
+
+def test_presupuesto_declara_indices_de_listado() -> None:
+    indexes = _indexes()
+    paciente = indexes["ix_presupuestos_paciente_created"]
+    assert [
+        column.name for column in paciente.columns
+    ] == ["consultorio_id", "paciente_id", "created_at"]
+    profesional = indexes["ix_presupuestos_profesional_estado"]
+    assert [
+        column.name for column in profesional.columns
+    ] == ["profesional_id", "estado"]
+
+
+def test_item_presupuesto_declara_columnas_y_referencias() -> None:
+    columns = ItemPresupuesto.__table__.c
+    assert {
+        "id",
+        "presupuesto_id",
+        "prestacion_id",
+        "pieza",
+        "cantidad",
+        "precio_unitario",
+        "cobertura_item",
+        "copago_item",
+    } <= set(columns.keys())
+    assert columns.pieza.nullable is True
+    assert columns.cantidad.nullable is False
+    for importe in ("precio_unitario", "cobertura_item", "copago_item"):
+        assert columns[importe].type.precision == 12
+        assert columns[importe].type.scale == 2
+
+    foreign_keys = {
+        constraint.columns[0].name: constraint
+        for constraint in ItemPresupuesto.__table__.foreign_key_constraints
+    }
+    assert (
+        foreign_keys["presupuesto_id"].referred_table.name == "presupuestos"
+    )
+    assert (
+        foreign_keys["prestacion_id"].referred_table.name == "prestaciones"
+    )
+
+
+def test_item_presupuesto_valida_cantidad_fdi_e_importes() -> None:
+    sqltext = " ".join(
+        str(check.sqltext) for check in _checks(ItemPresupuesto)
+    )
+    assert "cantidad > 0" in sqltext
+    assert "pieza / 10 BETWEEN 1 AND 4" in sqltext
+    assert "pieza / 10 BETWEEN 5 AND 8" in sqltext
+    assert "precio_unitario >= 0" in sqltext
+    assert "cobertura_item >= 0" in sqltext
+    assert "copago_item >= 0" in sqltext
+    assert (
+        "cobertura_item + copago_item = precio_unitario * cantidad"
+        in sqltext
+    )
+    assert "(deleted_at IS NULL) = is_active" in sqltext
+
+    indexes = _indexes()
+    assert [
+        column.name
+        for column in indexes["ix_items_presupuesto_presupuesto"].columns
+    ] == ["presupuesto_id"]
+

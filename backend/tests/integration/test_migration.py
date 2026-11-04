@@ -20,6 +20,11 @@ from tests.integration.clinica_helpers import (
     setup_clinica,
 )
 from tests.integration.helpers import run, sqlstate
+from tests.integration.presupuestos_helpers import (
+    insertar_item_db,
+    insertar_presupuesto_db,
+    setup_presupuestos,
+)
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 
@@ -99,7 +104,7 @@ def test_upgrade_crea_tablas_columnas_e_indices(engine) -> None:
 
     async def scenario() -> None:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0010_historia_clinica"
+        assert snapshot["version"] == "0011_presupuestos"
         assert snapshot["tables"] == set(Base.metadata.tables) | {
             "alembic_version"
         }
@@ -265,6 +270,8 @@ def test_c05_downgrade_y_upgrade_restaura_solo_sus_tablas(
                 "hallazgos_dentales",
                 "adjuntos",
                 "consentimientos",
+                "presupuestos",
+                "items_presupuesto",
             }
             | {"alembic_version"}
         )
@@ -278,7 +285,7 @@ def test_c05_downgrade_y_upgrade_restaura_solo_sus_tablas(
         return await _snapshot(engine)
 
     restored = run(after_upgrade())
-    assert restored["version"] == "0010_historia_clinica"
+    assert restored["version"] == "0011_presupuestos"
     assert {"pacientes", "obras_sociales", "turnos"} <= restored["tables"]
 
 
@@ -305,7 +312,7 @@ def test_c06_downgrade_y_upgrade_restaura_turnos(
         excludes = set(
             await _exclude_constraints(engine)
         )
-        assert snapshot["version"] == "0010_historia_clinica"
+        assert snapshot["version"] == "0011_presupuestos"
         assert "turnos" in snapshot["tables"]
         assert {"ex_turnos_profesional", "ex_turnos_sillon"} <= excludes
         return snapshot
@@ -334,7 +341,7 @@ def test_c07_downgrade_y_upgrade_restaura_la_sena(
 
     async def after_upgrade() -> dict[str, object]:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0010_historia_clinica"
+        assert snapshot["version"] == "0011_presupuestos"
         assert ("turnos", "sena_estado") in snapshot["columns"]
         return snapshot
 
@@ -362,7 +369,7 @@ def test_c08_downgrade_y_upgrade_restaura_mensajeria(
 
     async def after_upgrade() -> dict[str, object]:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0010_historia_clinica"
+        assert snapshot["version"] == "0011_presupuestos"
         assert {"recordatorios", "mensajes_whatsapp"} <= snapshot["tables"]
         return snapshot
 
@@ -398,7 +405,7 @@ def test_c10_downgrade_y_upgrade_restaura_la_lista_de_espera(
 
     async def after_upgrade() -> dict[str, object]:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0010_historia_clinica"
+        assert snapshot["version"] == "0011_presupuestos"
         assert "entradas_lista_espera" in snapshot["tables"]
         assert ("mensajes_whatsapp", "lista_espera_id") in snapshot["columns"]
         assert {
@@ -479,7 +486,7 @@ def test_c11_upgrade_crea_las_seis_tablas(engine) -> None:
 
     async def scenario() -> None:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0010_historia_clinica"
+        assert snapshot["version"] == "0011_presupuestos"
         assert _TABLAS_CLINICA <= snapshot["tables"]
 
     run(scenario())
@@ -732,7 +739,7 @@ def test_c11_downgrade_limpia_las_seis_tablas(
 
     async def after_upgrade() -> None:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0010_historia_clinica"
+        assert snapshot["version"] == "0011_presupuestos"
         assert _TABLAS_CLINICA <= snapshot["tables"]
         assert _TRIGGERS_CLINICA <= snapshot["triggers"]
 
@@ -761,3 +768,193 @@ async def _sqlstate_de(
     except DBAPIError as error:
         return sqlstate(error)
     return None
+
+
+# --- C-12 `0011_presupuestos` ----------------------------------------------
+
+_TABLAS_PRESUPUESTOS = {"presupuestos", "items_presupuesto"}
+_CHECKS_PRESUPUESTOS = {
+    "ck_presupuestos_baja_logica_coherente",
+    "ck_presupuestos_estado_valido",
+    "ck_presupuestos_cobertura_estado_valido",
+    "ck_presupuestos_importes_no_negativos",
+    "ck_presupuestos_totales_coherentes",
+    "ck_items_presupuesto_baja_logica_coherente",
+    "ck_items_presupuesto_cantidad_positiva",
+    "ck_items_presupuesto_importes_no_negativos",
+    "ck_items_presupuesto_totales_item_coherentes",
+    "ck_items_presupuesto_pieza_fdi_valida",
+}
+
+
+def test_c12_upgrade_crea_tablas_e_indices(engine) -> None:
+    """Expected: head is 0011 and the two budget tables and indexes exist."""
+
+    async def scenario() -> None:
+        snapshot = await _snapshot(engine)
+        assert snapshot["version"] == "0011_presupuestos"
+        assert _TABLAS_PRESUPUESTOS <= snapshot["tables"]
+        indexes: dict[str, str] = snapshot["indexes"]  # type: ignore[assignment]
+        paciente = indexes["ix_presupuestos_paciente_created"]
+        assert "consultorio_id" in paciente
+        assert "paciente_id" in paciente
+        assert "created_at" in paciente
+        profesional = indexes["ix_presupuestos_profesional_estado"]
+        assert "profesional_id" in profesional
+        assert "estado" in profesional
+        assert "ix_items_presupuesto_presupuesto" in indexes
+
+    run(scenario())
+
+
+def test_c12_checks_declarados(engine) -> None:
+    """Expected: every per-row invariant ships as a named CHECK."""
+
+    async def scenario() -> None:
+        snapshot = await _snapshot(engine)
+        checks: set[str] = snapshot["checks"]  # type: ignore[assignment]
+        assert _CHECKS_PRESUPUESTOS <= checks
+
+    run(scenario())
+
+
+def test_c12_sql_directo_rechaza_invariantes(session_factory) -> None:
+    """Business error: PostgreSQL refuses incoherent rows with 23514."""
+    data = run(setup_presupuestos(session_factory))
+    consultorio_id = data["consultorio_id"]
+    paciente = data["paciente_os_demo"]
+    profesional = data["profesional"]
+    creado_por = data["actores"]["odontologo"].id
+    cons = data["prestaciones"]["CONS"]
+
+    async def scenario() -> None:
+        presupuesto_id = await insertar_presupuesto_db(
+            session_factory,
+            consultorio_id=consultorio_id,
+            paciente_id=paciente.id,
+            profesional_id=profesional.id,
+            creado_por=creado_por,
+        )
+
+        # cantidad = 0 (the line has zero money, so only this CHECK trips).
+        assert await _sqlstate_de(
+            session_factory,
+            "INSERT INTO items_presupuesto "
+            "(id, presupuesto_id, prestacion_id, pieza, cantidad, "
+            "precio_unitario, cobertura_item, copago_item) "
+            "VALUES (:id, :presupuesto_id, :prestacion_id, NULL, 0, "
+            "0, 0, 0)",
+            {
+                "id": uuid.uuid4(),
+                "presupuesto_id": presupuesto_id,
+                "prestacion_id": cons.id,
+            },
+        ) == "23514"
+
+        # Invalid FDI teeth.
+        for pieza in (19, 49, 86):
+            assert await _sqlstate_de(
+                session_factory,
+                "INSERT INTO items_presupuesto "
+                "(id, presupuesto_id, prestacion_id, pieza, cantidad, "
+                "precio_unitario, cobertura_item, copago_item) "
+                "VALUES (:id, :presupuesto_id, :prestacion_id, :pieza, 1, "
+                "10000, 6000, 4000)",
+                {
+                    "id": uuid.uuid4(),
+                    "presupuesto_id": presupuesto_id,
+                    "prestacion_id": cons.id,
+                    "pieza": pieza,
+                },
+            ) == "23514"
+
+        # cobertura_item + copago_item != precio_unitario * cantidad.
+        assert await _sqlstate_de(
+            session_factory,
+            "INSERT INTO items_presupuesto "
+            "(id, presupuesto_id, prestacion_id, pieza, cantidad, "
+            "precio_unitario, cobertura_item, copago_item) "
+            "VALUES (:id, :presupuesto_id, :prestacion_id, 16, 1, "
+            "10000, 1, 4000)",
+            {
+                "id": uuid.uuid4(),
+                "presupuesto_id": presupuesto_id,
+                "prestacion_id": cons.id,
+            },
+        ) == "23514"
+
+        # A valid line is accepted (the constraints are not over-strict).
+        await insertar_item_db(
+            session_factory,
+            presupuesto_id=presupuesto_id,
+            prestacion_id=cons.id,
+            pieza=48,
+        )
+
+        # subtotal != cobertura_calculada + copago.
+        assert await _sqlstate_de(
+            session_factory,
+            "INSERT INTO presupuestos "
+            "(id, consultorio_id, paciente_id, profesional_id, creado_por, "
+            "estado, cobertura_estado, subtotal, cobertura_calculada, copago) "
+            "VALUES (:id, :consultorio_id, :paciente_id, :profesional_id, "
+            ":creado_por, 'borrador', 'calculada', 20000, 6000, 4000)",
+            {
+                "id": uuid.uuid4(),
+                "consultorio_id": consultorio_id,
+                "paciente_id": paciente.id,
+                "profesional_id": profesional.id,
+                "creado_por": creado_por,
+            },
+        ) == "23514"
+
+        # Incoherent soft delete: deleted_at set with is_active still true.
+        assert await _sqlstate_de(
+            session_factory,
+            "INSERT INTO presupuestos "
+            "(id, consultorio_id, paciente_id, profesional_id, creado_por, "
+            "estado, cobertura_estado, subtotal, cobertura_calculada, copago, "
+            "is_active, deleted_at) "
+            "VALUES (:id, :consultorio_id, :paciente_id, :profesional_id, "
+            ":creado_por, 'borrador', 'calculada', 10000, 6000, 4000, "
+            "true, now())",
+            {
+                "id": uuid.uuid4(),
+                "consultorio_id": consultorio_id,
+                "paciente_id": paciente.id,
+                "profesional_id": profesional.id,
+                "creado_por": creado_por,
+            },
+        ) == "23514"
+
+    run(scenario())
+
+
+def test_c12_downgrade_limpia_solo_sus_tablas(
+    migrated_database: str, engine
+) -> None:
+    """Edge: 0011 ⇄ 0010 is reversible and leaves C-01–C-11 untouched."""
+
+    _alembic("downgrade", "0010_historia_clinica", database_url=migrated_database)
+
+    async def after_downgrade() -> None:
+        snapshot = await _snapshot(engine)
+        assert snapshot["version"] == "0010_historia_clinica"
+        assert not _TABLAS_PRESUPUESTOS & set(snapshot["tables"])
+        assert {"pacientes", "turnos", "historias_clinicas"} <= set(
+            snapshot["tables"]
+        )
+        checks: set[str] = snapshot["checks"]  # type: ignore[assignment]
+        assert not _CHECKS_PRESUPUESTOS & checks
+
+    run(after_downgrade())
+
+    _alembic("upgrade", "head", database_url=migrated_database)
+
+    async def after_upgrade() -> None:
+        snapshot = await _snapshot(engine)
+        assert snapshot["version"] == "0011_presupuestos"
+        assert _TABLAS_PRESUPUESTOS <= snapshot["tables"]
+
+    run(after_upgrade())
+

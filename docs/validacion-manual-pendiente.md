@@ -159,6 +159,58 @@ La clínica ya puede abrir una ficha clínica por paciente, escribir evoluciones
 - Smoke HTTP contra base descartable: flujo completo en verde; `P0001`, `23505` y `23514` verificados por SQL directo.
 - Pendiente: prueba visual de la ficha cuando exista el change de UI clínica y validación de la cátedra sobre el vínculo asistente→profesional.
 
+## C-12 — Presupuestos y planes de tratamiento
+
+### Qué se aplicó (resumen no técnico)
+
+El odontólogo ya puede armar un presupuesto o plan de tratamiento con una o varias prestaciones, indicando pieza dental (opcional) y cantidad. El sistema calcula solo los precios, la cobertura de la obra social y el copago del paciente; el cliente no puede enviar importes. El presupuesto se entrega como borrador, el paciente lo puede aceptar o rechazar, y luego el plan avanza a “en curso” y “finalizado”. Mientras es borrador se puede editar o recalcular la cobertura si cambian las reglas del convenio. Todo movimiento queda auditado con usuario, IP y dispositivo.
+
+### Qué no cambia todavía
+
+- No hay pantalla de presupuestos: se prueba por Swagger (`http://127.0.0.1:8000/docs`).
+- No están los cobros, señas ni Mercado Pago (C-13) ni la facturación ARCA/liquidación de obras sociales (C-14).
+- No hay PDF, envío por WhatsApp ni portal del paciente para consultar el presupuesto.
+- La aceptación **no** exige consentimiento informado: el consentimiento se sigue registrando con C-11 y se exigirá al registrar la práctica invasiva.
+
+### Datos demo para probar
+
+- API/Swagger: `http://127.0.0.1:8000/docs`.
+- Administrador: `admin@clinica.test` / `demo-admin-pass-2026`.
+- Odontólogo: `odonto.demo@clinica.test` / `demo-odonto-pass-2026` (profesional `MP-DEMO-1`).
+- Recepción: `recepcion.demo@clinica.test` / `demo-staff-pass-2026`.
+- Asistente: `asistente.demo@clinica.test` / `demo-staff-pass-2026`.
+- Auditor: `auditor.demo@clinica.test` / `demo-staff-pass-2026`.
+- Turnos del odontólogo el 2026-11-09: Ana Demo `reservado`, Bruno Demo `confirmado`, Carla Demo `en_sala`.
+- OS Demo cubre el 60 % de `CONS`, `LIM` y `OBT`. `EXO` no está cubierta. Carla no tiene obra social.
+
+### Pruebas manuales
+
+| # | Qué probar | Cómo | Esperado |
+|---|---|---|---|
+| 1 | Alta con OS Demo | Login odontólogo; `POST /presupuestos` con Ana y dos ítems (`CONS` ×1 y `OBT` con pieza 16 ×2) | 201 borrador; cobertura 60 %; subtotal, cobertura y copago calculados por el servidor |
+| 2 | Paciente sin obra social | Mismo alta con Carla y `CONS` ×2 | 201; cobertura 0; copago = subtotal |
+| 3 | Prestación no cubierta | Alta con Ana y `EXO` | 201; `cobertura_estado=calculada`; cobertura 0 y copago = total |
+| 4 | Cobertura pendiente | Como admin, crear una obra social **sin** `cobertura_porcentaje` y un paciente con esa obra social; alta con `CONS` | 201; `pendiente_verificacion`; cobertura 0; copago = total |
+| 5 | Aceptar un pendiente | `PATCH /presupuestos/{id}/estado` con `{"estado":"aceptado"}` | 200; estado aceptado; no se bloquea por consentimiento ni por historia clínica |
+| 6 | Idempotencia | Repetir el mismo `PATCH` con `aceptado` | 200 y no se duplica la auditoría de aceptación |
+| 7 | Editar borrador | `PUT /presupuestos/{id}` con otros ítems | 200; se reemplazan los ítems, se recalculan precios/cobertura/totales y los anteriores quedan dados de baja lógica |
+| 8 | Precio congelado y re-cotización | Cambiar `precio_base` de `CONS` con `PUT /prestaciones/{id}`; leer un presupuesto viejo y luego editar un borrador | El presupuesto viejo conserva su precio y totales; el `PUT` del borrador toma el precio nuevo |
+| 9 | Recalcular cobertura | Corregir la obra social pendiente a 60 % con `PUT /obras-sociales/{id}`; `POST /presupuestos/{id}/recalcular` con `{}` | 200 `calculada`; la cobertura cambia y los precios unitarios quedan intactos |
+| 10 | Transición inválida | `PATCH .../estado` con `en_curso` sobre un borrador | 422 y el presupuesto sigue en borrador |
+| 11 | Editar fuera de borrador | `PUT` sobre un presupuesto aceptado | 409 sin cambios |
+| 12 | Baja lógica | `DELETE /presupuestos/{id}` sobre borrador y sobre aceptado | 204 en borrador (desaparece del listado); 409 en aceptado |
+| 13 | RBAC | Login recepción/asistente/auditor: `GET /presupuestos` y un `POST`/`PUT`/`PATCH`/`DELETE` | Lectura 200; escritura 403 |
+| 14 | Sin token | Cualquier endpoint de presupuestos sin `Authorize` | 401 |
+| 15 | Auditoría | Consultar `registro_auditoria` de la base demo | Una fila por acción (`presupuesto.crear/editar/recalcular/aceptar/rechazar/en_curso/finalizar/eliminar`) con usuario, IP y dispositivo; las acciones repetidas no generan filas extra |
+
+### Estado de verificación
+
+- Suite backend completa: **829 tests en verde**.
+- Frontend: **28 tests en verde** y `tsc --noEmit` sin errores.
+- Smoke HTTP contra base descartable: 8/8 pasos en verde; `23514` y `P0001` verificados por SQL directo.
+- OpenSpec: change válido y 4/4 artefactos completos.
+- Pendiente: prueba visual cuando exista la UI de presupuestos y la integración con caja/facturación (C-13/C-14).
+
 ## Prueba final de la página
 
 Cuando estén todos los changes:

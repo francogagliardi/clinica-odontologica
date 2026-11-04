@@ -17,12 +17,14 @@ from app.infrastructure.repositories import (
     EvolucionRepository,
     HallazgoDentalRepository,
     HistoriaClinicaRepository,
+    ItemPresupuestoRepository,
     ListaEsperaRepository,
     MensajeWhatsAppRepository,
     ObraSocialRepository,
     OdontogramaRepository,
     PacienteRepository,
     PrestacionRepository,
+    PresupuestoRepository,
     ProfesionalRepository,
     ProfesionalSillonRepository,
     RecordatorioRepository,
@@ -63,6 +65,8 @@ class UnitOfWork:
         self.hallazgos = HallazgoDentalRepository(self._session)
         self.adjuntos = AdjuntoRepository(self._session)
         self.consentimientos = ConsentimientoRepository(self._session)
+        self.presupuestos = PresupuestoRepository(self._session)
+        self.items_presupuesto = ItemPresupuestoRepository(self._session)
         return self
 
     async def __aexit__(

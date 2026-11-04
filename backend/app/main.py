@@ -17,6 +17,7 @@ from app.api import (
     ofertas,
     pacientes,
     prestaciones,
+    presupuestos,
     profesionales,
     publico,
     ready,
@@ -58,6 +59,7 @@ app.include_router(auth.router)
 app.include_router(profesionales.router)
 app.include_router(sillones.router)
 app.include_router(prestaciones.router)
+app.include_router(presupuestos.router)
 app.include_router(bloqueos.router)
 app.include_router(pacientes.router)
 app.include_router(historia_clinica.router)

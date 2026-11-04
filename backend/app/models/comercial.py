@@ -116,3 +116,148 @@ Index(
     unique=True,
     postgresql_where=text("deleted_at IS NULL"),
 )
+
+# Budgets (C-12, design D3): the header stores the three totals so C-13/C-14
+# keep the agreed amounts even if the catalogue or the convention changes.
+# The cross-table invariant (subtotal = SUM(items)) is service-owned; the
+# per-row CHECKs below make any direct SQL write reject incoherent money.
+_ESTADOS_PRESUPUESTO = (
+    "'borrador','aceptado','rechazado','en_curso','finalizado'"
+)
+_ESTADOS_COBERTURA = "'calculada','pendiente_verificacion'"
+_PIEZA_FDI_VALIDA = (
+    "((pieza / 10 BETWEEN 1 AND 4 AND pieza % 10 BETWEEN 1 AND 8) "
+    "OR (pieza / 10 BETWEEN 5 AND 8 AND pieza % 10 BETWEEN 1 AND 5))"
+)
+
+
+class Presupuesto(Base, AuditMixin):
+    """Commercial treatment offer with frozen totals (RN-CL-02, RN-OS-02)."""
+
+    __tablename__ = "presupuestos"
+    __table_args__ = (
+        CheckConstraint(_LOWA_LOGICA, name="baja_logica_coherente"),
+        CheckConstraint(
+            f"estado IN ({_ESTADOS_PRESUPUESTO})", name="estado_valido"
+        ),
+        CheckConstraint(
+            f"cobertura_estado IN ({_ESTADOS_COBERTURA})",
+            name="cobertura_estado_valido",
+        ),
+        CheckConstraint(
+            "subtotal >= 0 AND cobertura_calculada >= 0 AND copago >= 0",
+            name="importes_no_negativos",
+        ),
+        CheckConstraint(
+            "subtotal = cobertura_calculada + copago",
+            name="totales_coherentes",
+        ),
+        Index(
+            "ix_presupuestos_paciente_created",
+            "consultorio_id",
+            "paciente_id",
+            "created_at",
+        ),
+        Index(
+            "ix_presupuestos_profesional_estado",
+            "profesional_id",
+            "estado",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid4
+    )
+    consultorio_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("consultorios.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    paciente_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("pacientes.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    profesional_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("profesionales.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    creado_por: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("usuarios.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    estado: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="borrador",
+        server_default=text("'borrador'"),
+    )
+    cobertura_estado: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default="calculada",
+        server_default=text("'calculada'"),
+    )
+    subtotal: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False
+    )
+    cobertura_calculada: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False
+    )
+    copago: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+
+
+class ItemPresupuesto(Base, AuditMixin):
+    """Budget line: the price is a snapshot of `precio_base` (design D7).
+
+    Replaced lines are soft-deleted, never physically removed, so the offer
+    history survives an edit of the draft.
+    """
+
+    __tablename__ = "items_presupuesto"
+    __table_args__ = (
+        CheckConstraint(_LOWA_LOGICA, name="baja_logica_coherente"),
+        CheckConstraint("cantidad > 0", name="cantidad_positiva"),
+        CheckConstraint(
+            "precio_unitario >= 0 AND cobertura_item >= 0 "
+            "AND copago_item >= 0",
+            name="importes_no_negativos",
+        ),
+        CheckConstraint(
+            "cobertura_item + copago_item = precio_unitario * cantidad",
+            name="totales_item_coherentes",
+        ),
+        CheckConstraint(
+            f"pieza IS NULL OR {_PIEZA_FDI_VALIDA}",
+            name="pieza_fdi_valida",
+        ),
+        Index("ix_items_presupuesto_presupuesto", "presupuesto_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid4
+    )
+    presupuesto_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("presupuestos.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    prestacion_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("prestaciones.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    pieza: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cantidad: Mapped[int] = mapped_column(Integer, nullable=False)
+    precio_unitario: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False
+    )
+    cobertura_item: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False
+    )
+    copago_item: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False
+    )
+

@@ -37,11 +37,11 @@ def test_baseline_revision_carries_zero_domain_ddl() -> None:
 
 
 def test_single_head_revision() -> None:
-    """The revision graph has exactly one head (C-11 extends the chain)."""
+    """The revision graph has exactly one head (C-12 extends the chain)."""
     config = Config(str(_BACKEND_DIR / "alembic.ini"))
     config.set_main_option("script_location", str(_BACKEND_DIR / "alembic"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["0010_historia_clinica"]
+    assert script.get_heads() == ["0011_presupuestos"]
 
 
 def test_c02_revision_chains_from_baseline() -> None:
@@ -149,3 +149,15 @@ def test_c11_revision_chains_from_c10() -> None:
     assert "adjuntos" in source
     assert "consentimientos" in source
     assert "P0001" in source
+
+
+def test_c12_revision_chains_from_c11() -> None:
+    """0011 adds budgets and their lines on top of the clinical record."""
+    source = (
+        _BACKEND_DIR / "alembic" / "versions" / "0011_presupuestos.py"
+    ).read_text(encoding="utf-8")
+    assert 'down_revision: str | None = "0010_historia_clinica"' in source
+    assert "presupuestos" in source
+    assert "items_presupuesto" in source
+    assert "subtotal = cobertura_calculada + copago" in source
+    assert "pieza / 10 BETWEEN 1 AND 4" in source

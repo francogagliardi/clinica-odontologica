@@ -16,7 +16,12 @@ from app.models.clinica import (
     HistoriaClinica,
     Odontograma,
 )
-from app.models.comercial import ObraSocial, Prestacion
+from app.models.comercial import (
+    ItemPresupuesto,
+    ObraSocial,
+    Prestacion,
+    Presupuesto,
+)
 from app.models.comunicaciones import MensajeWhatsApp, Recordatorio
 from app.models.lista_espera import EntradaListaEspera
 from app.models.pacientes import Paciente
@@ -40,11 +45,13 @@ __all__ = [
     "Evolucion",
     "HallazgoDental",
     "HistoriaClinica",
+    "ItemPresupuesto",
     "MensajeWhatsApp",
     "ObraSocial",
     "Odontograma",
     "Paciente",
     "Prestacion",
+    "Presupuesto",
     "Profesional",
     "ProfesionalSillon",
     "Recordatorio",

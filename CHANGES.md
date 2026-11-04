@@ -338,13 +338,13 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux/Integ.)    │ A
 ---
 
 ### [C-12] `presupuestos-planes`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado 2026-11-04 (archivado en `openspec/changes/archive/`) — 829 tests backend + 28 frontend
 - **Scope**: Presupuesto / plan de tratamiento en consulta con cobertura calculada (US-021)
-  - Modelos `Presupuesto (cobertura_calculada, copago, estado borrador/aceptado/rechazado/en_curso/finalizado)` + `ItemPresupuesto (prestacion/pieza/cantidad/precio/cobertura_item)`
-  - Cálculo cobertura/copago por ítem contra convenio cargado (RN-OS-02; en v1 contra "OS Demo", DD-11); cobertura no validable → presupuesto marcado "cobertura pendiente de verificación" sin bloquear la atención; aceptación → plan en curso + consentimiento firmado si aplica (RN-CL-02/03)
-  - Endpoints `/presupuestos` (CRUD, cambio de estado, cálculo)
-  - Migración 007: presupuesto + item_presupuesto
-  - Tests: copago = precio − cobertura por ítem, transición inválida 422, servicio de cobertura caído no bloquea
+  - Modelos `Presupuesto (cobertura_estado, subtotal, cobertura_calculada, copago, estado borrador/aceptado/rechazado/en_curso/finalizado)` + `ItemPresupuesto (prestacion, pieza, cantidad, precio_unitario, cobertura_item, copago_item)`
+  - Cálculo cobertura/copago por ítem contra convenio cargado (RN-OS-02; v1 contra "OS Demo", DD-11); cobertura no validable → `pendiente_verificacion` sin bloquear creación/aceptación; aceptación no gatea consentimiento (decisión 2026-11-04: se exige al registrar la práctica)
+  - Endpoints `/presupuestos` (CRUD, cambio de estado, recálculo)
+  - Migración `0011_presupuestos`: presupuesto + item_presupuesto
+  - Tests: copago = precio − cobertura por ítem, transición inválida 422, proveedor de cobertura caído no bloquea, snapshot de precios, RBAC y auditoría
 - **Dependencias**: C-11, C-05
 - **Governance**: ALTO
 - **Leer antes**:

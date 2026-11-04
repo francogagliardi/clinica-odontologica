@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from typing import Generic, TypeVar
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,11 +23,13 @@ from app.models import (
     Evolucion,
     HallazgoDental,
     HistoriaClinica,
+    ItemPresupuesto,
     MensajeWhatsApp,
     ObraSocial,
     Odontograma,
     Paciente,
     Prestacion,
+    Presupuesto,
     Profesional,
     ProfesionalSillon,
     Recordatorio,
@@ -886,3 +888,96 @@ class ConsentimientoRepository(BaseRepository[Consentimiento]):
             )
         )
         return list(result)
+
+
+class PresupuestoRepository(BaseRepository[Presupuesto]):
+    """Budget header: detail with live lines and filtered, newest-first lists."""
+
+    model = Presupuesto
+
+    async def get_con_items(
+        self, presupuesto_id: uuid.UUID
+    ) -> tuple[Presupuesto | None, list[ItemPresupuesto]]:
+        """Return the header plus only active lines (design D3/D11)."""
+        presupuesto = await self.get(presupuesto_id)
+        if presupuesto is None or presupuesto.deleted_at is not None:
+            return None, []
+        result = await self._session.scalars(
+            select(ItemPresupuesto)
+            .where(
+                ItemPresupuesto.presupuesto_id == presupuesto_id,
+                ItemPresupuesto.deleted_at.is_(None),
+            )
+            .order_by(
+                ItemPresupuesto.created_at, ItemPresupuesto.id
+            )
+        )
+        return presupuesto, list(result)
+
+    async def list_filtrado(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        paciente_id: uuid.UUID | None = None,
+        profesional_id: uuid.UUID | None = None,
+        estado: str | None = None,
+    ) -> list[Presupuesto]:
+        """Consultorio scope plus optional filters, newest first (US-021)."""
+        statement = select(Presupuesto).where(
+            Presupuesto.consultorio_id == consultorio_id,
+            Presupuesto.deleted_at.is_(None),
+        )
+        if paciente_id is not None:
+            statement = statement.where(
+                Presupuesto.paciente_id == paciente_id
+            )
+        if profesional_id is not None:
+            statement = statement.where(
+                Presupuesto.profesional_id == profesional_id
+            )
+        if estado is not None:
+            statement = statement.where(Presupuesto.estado == estado)
+        statement = statement.order_by(
+            Presupuesto.created_at.desc(), Presupuesto.id.desc()
+        )
+        result = await self._session.scalars(statement)
+        return list(result)
+
+
+class ItemPresupuestoRepository(BaseRepository[ItemPresupuesto]):
+    """Budget lines: soft-deleted when a draft replaces its items."""
+
+    model = ItemPresupuesto
+
+    async def list_by_presupuesto(
+        self,
+        presupuesto_id: uuid.UUID,
+        include_inactive: bool = False,
+    ) -> list[ItemPresupuesto]:
+        statement = select(ItemPresupuesto).where(
+            ItemPresupuesto.presupuesto_id == presupuesto_id
+        )
+        if not include_inactive:
+            statement = statement.where(
+                ItemPresupuesto.deleted_at.is_(None)
+            )
+        statement = statement.order_by(
+            ItemPresupuesto.created_at, ItemPresupuesto.id
+        )
+        result = await self._session.scalars(statement)
+        return list(result)
+
+    async def desactivar_de_presupuesto(
+        self, presupuesto_id: uuid.UUID
+    ) -> int:
+        """Soft-delete every live line of a draft; history is preserved."""
+        result = await self._session.execute(
+            update(ItemPresupuesto)
+            .where(
+                ItemPresupuesto.presupuesto_id == presupuesto_id,
+                ItemPresupuesto.deleted_at.is_(None),
+            )
+            .values(is_active=False, deleted_at=func.now()),
+            execution_options={"synchronize_session": False},
+        )
+        return result.rowcount or 0
