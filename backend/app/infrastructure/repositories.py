@@ -17,6 +17,7 @@ from app.models import (
     Base,
     Bloqueo,
     Consultorio,
+    EntradaListaEspera,
     MensajeWhatsApp,
     ObraSocial,
     Paciente,
@@ -476,6 +477,189 @@ class TurnoRepository(BaseRepository[Turno]):
             Turno.fin > desde,
             or_(*recursos),
         )
+        result = await self._session.scalars(statement)
+        return list(result)
+
+
+class ListaEsperaRepository(BaseRepository[EntradaListaEspera]):
+    """FIFO queue and live retentions of a freed slot (C-10, D3/D4/D7)."""
+
+    model = EntradaListaEspera
+
+    async def list_by_consultorio(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        estado: str | None = None,
+        prestacion_id: uuid.UUID | None = None,
+        profesional_id: uuid.UUID | None = None,
+    ) -> list[EntradaListaEspera]:
+        """Queue listing in FIFO order (RN-TU-05)."""
+        statement = select(EntradaListaEspera).where(
+            EntradaListaEspera.consultorio_id == consultorio_id,
+            EntradaListaEspera.deleted_at.is_(None),
+        )
+        if estado is not None:
+            statement = statement.where(EntradaListaEspera.estado == estado)
+        if prestacion_id is not None:
+            statement = statement.where(
+                EntradaListaEspera.prestacion_id == prestacion_id
+            )
+        if profesional_id is not None:
+            statement = statement.where(
+                EntradaListaEspera.profesional_id == profesional_id
+            )
+        statement = statement.order_by(
+            EntradaListaEspera.orden, EntradaListaEspera.created_at
+        )
+        result = await self._session.scalars(statement)
+        return list(result)
+
+    async def get_for_update(
+        self, entrada_id: uuid.UUID
+    ) -> EntradaListaEspera | None:
+        """Lock the entry row for the conversion/rejection critical section."""
+        result = await self._session.scalars(
+            select(EntradaListaEspera)
+            .where(EntradaListaEspera.id == entrada_id)
+            .with_for_update()
+        )
+        return result.first()
+
+    async def list_ofertas_vencidas(
+        self, now: datetime
+    ) -> list[EntradaListaEspera]:
+        """Offers whose TTL elapsed, in FIFO order, for the scheduler sweep."""
+        result = await self._session.scalars(
+            select(EntradaListaEspera)
+            .where(
+                EntradaListaEspera.estado == "ofrecido",
+                EntradaListaEspera.deleted_at.is_(None),
+                EntradaListaEspera.oferta_expira_en <= now,
+            )
+            .order_by(EntradaListaEspera.orden)
+        )
+        return list(result)
+
+    async def get_pendiente(
+        self,
+        *,
+        consultorio_id: uuid.UUID,
+        paciente_id: uuid.UUID,
+        prestacion_id: uuid.UUID,
+        profesional_id: uuid.UUID | None = None,
+    ) -> EntradaListaEspera | None:
+        """Duplicate detector: a patient waits once per service/professional."""
+        statement = select(EntradaListaEspera).where(
+            EntradaListaEspera.consultorio_id == consultorio_id,
+            EntradaListaEspera.paciente_id == paciente_id,
+            EntradaListaEspera.prestacion_id == prestacion_id,
+            EntradaListaEspera.estado == "pendiente",
+            EntradaListaEspera.deleted_at.is_(None),
+        )
+        if profesional_id is None:
+            statement = statement.where(
+                EntradaListaEspera.profesional_id.is_(None)
+            )
+        else:
+            statement = statement.where(
+                EntradaListaEspera.profesional_id == profesional_id
+            )
+        result = await self._session.scalars(statement)
+        return result.first()
+
+    async def siguiente_pendiente_compatible(
+        self,
+        *,
+        consultorio_id: uuid.UUID,
+        prestacion_id: uuid.UUID,
+        profesional_id: uuid.UUID,
+    ) -> EntradaListaEspera | None:
+        """Claim the oldest compatible entry, skipping rows locked elsewhere.
+
+        `FOR UPDATE SKIP LOCKED` makes two simultaneous freed slots pick
+        different entries instead of offering the same one twice (design D4).
+        """
+        statement = (
+            select(EntradaListaEspera)
+            .where(
+                EntradaListaEspera.consultorio_id == consultorio_id,
+                EntradaListaEspera.prestacion_id == prestacion_id,
+                EntradaListaEspera.estado == "pendiente",
+                EntradaListaEspera.deleted_at.is_(None),
+                or_(
+                    EntradaListaEspera.profesional_id.is_(None),
+                    EntradaListaEspera.profesional_id == profesional_id,
+                ),
+            )
+            .order_by(
+                EntradaListaEspera.orden, EntradaListaEspera.created_at
+            )
+            .limit(1)
+            .with_for_update(skip_locked=True)
+        )
+        result = await self._session.scalars(statement)
+        return result.first()
+
+    async def retenciones_vigentes(
+        self,
+        *,
+        profesional_id: uuid.UUID,
+        sillon_id: uuid.UUID,
+        desde: datetime,
+        hasta: datetime,
+        now: datetime,
+        exclude_id: uuid.UUID | None = None,
+    ) -> list[EntradaListaEspera]:
+        """Live offers overlapping the range for the professional or the chair.
+
+        Lazy expiry (D5): a row past `oferta_expira_en` no longer blocks, even if
+        the worker has not swept it yet.
+        """
+        statement = select(EntradaListaEspera).where(
+            EntradaListaEspera.estado == "ofrecido",
+            EntradaListaEspera.deleted_at.is_(None),
+            EntradaListaEspera.oferta_expira_en > now,
+            EntradaListaEspera.oferta_inicio < hasta,
+            EntradaListaEspera.oferta_fin > desde,
+            or_(
+                EntradaListaEspera.oferta_profesional_id == profesional_id,
+                EntradaListaEspera.oferta_sillon_id == sillon_id,
+            ),
+        )
+        if exclude_id is not None:
+            statement = statement.where(EntradaListaEspera.id != exclude_id)
+        result = await self._session.scalars(statement)
+        return list(result)
+
+    async def list_retenciones_en_rango(
+        self,
+        *,
+        desde: datetime,
+        hasta: datetime,
+        now: datetime,
+        profesional_id: uuid.UUID | None = None,
+        sillon_id: uuid.UUID | None = None,
+    ) -> list[EntradaListaEspera]:
+        """Live retentions used to hide slots from both availability views."""
+        statement = select(EntradaListaEspera).where(
+            EntradaListaEspera.estado == "ofrecido",
+            EntradaListaEspera.deleted_at.is_(None),
+            EntradaListaEspera.oferta_expira_en > now,
+            EntradaListaEspera.oferta_inicio < hasta,
+            EntradaListaEspera.oferta_fin > desde,
+        )
+        recursos = []
+        if profesional_id is not None:
+            recursos.append(
+                EntradaListaEspera.oferta_profesional_id == profesional_id
+            )
+        if sillon_id is not None:
+            recursos.append(
+                EntradaListaEspera.oferta_sillon_id == sillon_id
+            )
+        if recursos:
+            statement = statement.where(or_(*recursos))
         result = await self._session.scalars(statement)
         return list(result)
 

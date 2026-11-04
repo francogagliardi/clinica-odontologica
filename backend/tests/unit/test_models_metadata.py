@@ -1,12 +1,15 @@
 """Unit tests for the security model contract (no database required)."""
 
 from sqlalchemy import CheckConstraint, Uuid
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import ExcludeConstraint
+from sqlalchemy.schema import AddConstraint
 
 from app.models import (
     Base,
     Bloqueo,
     Consultorio,
+    EntradaListaEspera,
     MensajeWhatsApp,
     ObraSocial,
     Paciente,
@@ -40,6 +43,7 @@ EXPECTED_TABLES = {
     "turnos",
     "recordatorios",
     "mensajes_whatsapp",
+    "entradas_lista_espera",
 }
 
 
@@ -72,6 +76,7 @@ def test_baja_logica_se_declara_en_entidades_de_negocio() -> None:
         Paciente,
         ObraSocial,
         Turno,
+        EntradaListaEspera,
     ):
         columns = set(model.__table__.c.keys())
         assert {"is_active", "created_at", "updated_at", "deleted_at"} <= columns
@@ -97,6 +102,7 @@ def test_check_de_coherencia_de_baja_logica_declarado() -> None:
         Paciente,
         ObraSocial,
         Turno,
+        EntradaListaEspera,
     ):
         checks = [
             constraint
@@ -373,3 +379,147 @@ def test_mensaje_whatsapp_valida_estados_y_proveedor_unico() -> None:
     assert proveedor.unique is True
     where = proveedor.dialect_options["postgresql"].get("where")
     assert str(where) == "proveedor_mensaje_id IS NOT NULL"
+
+
+def test_entrada_lista_espera_declara_retencion_y_fifo() -> None:
+    """Contract of the waiting-list entry: FIFO order and retention columns."""
+    columns = EntradaListaEspera.__table__.c
+    for name in (
+        "consultorio_id",
+        "paciente_id",
+        "prestacion_id",
+        "profesional_id",
+        "orden",
+        "estado",
+        "oferta_profesional_id",
+        "oferta_sillon_id",
+        "oferta_inicio",
+        "oferta_fin",
+        "oferta_expira_en",
+        "turno_id",
+    ):
+        assert name in columns, name
+
+    assert columns.profesional_id.nullable is True
+    for opcional in (
+        "oferta_profesional_id",
+        "oferta_sillon_id",
+        "oferta_inicio",
+        "oferta_fin",
+        "oferta_expira_en",
+        "turno_id",
+    ):
+        assert columns[opcional].nullable is True, opcional
+
+    assert columns.orden.identity is not None
+    assert columns.orden.nullable is False
+    assert columns.estado.nullable is False
+    assert columns.estado.default.arg == "pendiente"
+    assert str(columns.estado.server_default.arg) == "'pendiente'"
+
+
+def test_entrada_lista_espera_valida_coherencia_de_estados() -> None:
+    """CHECKs: offer completeness, conversion, and retention only when offered."""
+    sqltext = " ".join(
+        str(check.sqltext) for check in _checks(EntradaListaEspera)
+    )
+    assert "estado IN ('pendiente','ofrecido','convertido','vencido')" in sqltext
+    assert "oferta_fin > oferta_inicio" in sqltext
+    assert "oferta_profesional_id IS NOT NULL" in sqltext
+    assert "oferta_sillon_id IS NOT NULL" in sqltext
+    assert "oferta_expira_en IS NOT NULL" in sqltext
+    assert "estado <> 'convertido' OR turno_id IS NOT NULL" in sqltext
+    assert "estado = 'ofrecido'" in sqltext
+    assert "oferta_inicio IS NULL" in sqltext
+    assert "(deleted_at IS NULL) = is_active" in sqltext
+
+
+def test_entrada_lista_espera_declara_exclusion_de_retencion() -> None:
+    """Two partial GiST constraints make overlapping offers impossible."""
+    excludes = {
+        constraint.name: constraint
+        for constraint in EntradaListaEspera.__table__.constraints
+        if isinstance(constraint, ExcludeConstraint)
+    }
+    assert set(excludes) == {
+        "ex_lista_espera_profesional",
+        "ex_lista_espera_sillon",
+    }
+    for constraint in excludes.values():
+        where = str(constraint.where) if constraint.where is not None else ""
+        assert "estado = 'ofrecido'" in where
+        assert "deleted_at IS NULL" in where
+        ddl = str(
+            AddConstraint(constraint).compile(
+                dialect=postgresql.dialect()
+            )
+        )
+        assert "tstzrange(oferta_inicio, oferta_fin" in ddl
+        assert "WITH &&" in ddl
+        assert "USING gist" in ddl
+
+
+def test_entrada_lista_espera_declara_indices_de_cola_y_vencimiento() -> None:
+    """Queue, expiry sweep, retention lookups and the partial unique indexes."""
+    indexes = {
+        index.name: index
+        for table in Base.metadata.tables.values()
+        for index in table.indexes
+    }
+    expected = {
+        "ix_entradas_lista_espera_cola",
+        "ix_entradas_lista_espera_prestacion",
+        "ix_entradas_lista_espera_vencimiento",
+        "ix_entradas_lista_espera_retencion_profesional",
+        "ix_entradas_lista_espera_retencion_sillon",
+        "uq_entradas_lista_espera_pendiente",
+        "uq_entradas_lista_espera_turno",
+    }
+    assert expected <= set(indexes)
+
+    assert [
+        column.name for column in indexes["ix_entradas_lista_espera_cola"].columns
+    ] == ["consultorio_id", "estado", "orden"]
+    assert [
+        column.name
+        for column in indexes["ix_entradas_lista_espera_vencimiento"].columns
+    ] == ["estado", "oferta_expira_en"]
+
+    pendiente = indexes["uq_entradas_lista_espera_pendiente"]
+    assert pendiente.unique is True
+    where = pendiente.dialect_options["postgresql"].get("where")
+    assert str(where) == "estado = 'pendiente' AND deleted_at IS NULL"
+    expresiones = " ".join(
+        str(expression) for expression in pendiente.expressions
+    )
+    assert "paciente_id" in expresiones
+    assert "prestacion_id" in expresiones
+    assert "coalesce" in expresiones.lower()
+
+    turno = indexes["uq_entradas_lista_espera_turno"]
+    assert turno.unique is True
+    where_turno = turno.dialect_options["postgresql"].get("where")
+    assert str(where_turno) == "turno_id IS NOT NULL"
+
+
+def test_mensaje_whatsapp_admite_oferta_sin_turno() -> None:
+    """An offer message has no turn yet: nullable turn plus waiting-list link."""
+    columns = MensajeWhatsApp.__table__.c
+    assert columns.turno_id.nullable is True
+    assert "lista_espera_id" in columns
+    assert columns.lista_espera_id.nullable is True
+
+    foreign_keys = {
+        constraint.columns[0].name: constraint
+        for constraint in MensajeWhatsApp.__table__.foreign_key_constraints
+    }
+    assert (
+        foreign_keys["lista_espera_id"].referred_table.name
+        == "entradas_lista_espera"
+    )
+
+    sqltext = " ".join(
+        str(check.sqltext) for check in _checks(MensajeWhatsApp)
+    )
+    assert "aceptado" in sqltext and "rechazado" in sqltext
+    assert "turno_id IS NOT NULL OR lista_espera_id IS NOT NULL" in sqltext

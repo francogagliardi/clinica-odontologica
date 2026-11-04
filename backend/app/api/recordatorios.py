@@ -34,6 +34,7 @@ def _mensaje_response(mensaje: MensajeWhatsApp) -> MensajeResponse:
     return MensajeResponse(
         id=mensaje.id,
         turno_id=mensaje.turno_id,
+        lista_espera_id=mensaje.lista_espera_id,
         recordatorio_id=mensaje.recordatorio_id,
         plantilla=mensaje.plantilla,
         estado_envio=mensaje.estado_envio,
@@ -119,6 +120,7 @@ async def reenviar(
     nuevo = MensajeWhatsApp(
         recordatorio_id=original.recordatorio_id,
         turno_id=original.turno_id,
+        lista_espera_id=original.lista_espera_id,
         plantilla=original.plantilla,
         estado_envio="pendiente",
         payload=dict(original.payload),

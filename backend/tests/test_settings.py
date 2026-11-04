@@ -96,3 +96,14 @@ def test_gestion_token_ttl_default_and_override(monkeypatch) -> None:
 
     monkeypatch.setenv("GESTION_TOKEN_TTL_MINUTES", "60")
     assert load_settings().gestion_token_ttl_minutes == 60
+
+
+def test_lista_espera_oferta_ttl_default_and_override(monkeypatch) -> None:
+    """C-10: the offer TTL is configurable and defaults to 30 minutes."""
+    for key, value in _full_env().items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.delenv("LISTA_ESPERA_OFERTA_TTL_MINUTOS", raising=False)
+    assert load_settings().lista_espera_oferta_ttl_minutos == 30
+
+    monkeypatch.setenv("LISTA_ESPERA_OFERTA_TTL_MINUTOS", "15")
+    assert load_settings().lista_espera_oferta_ttl_minutos == 15

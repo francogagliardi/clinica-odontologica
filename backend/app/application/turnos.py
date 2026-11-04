@@ -7,7 +7,7 @@ exclusion translation. Keeping them here avoids two diverging copies of RN-TU-01
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
@@ -153,7 +153,29 @@ async def validar_solapamiento(
     fin: datetime,
     es_sobreturno: bool,
     exclude_id: uuid.UUID | None = None,
+    retencion_excluida: uuid.UUID | None = None,
 ) -> None:
+    """Reject overlaps with a live waiting-list offer and then with turnos.
+
+    The retention is checked *before* the sobreturno early return: a marked
+    sobreturno cannot step on an offer (C-10, `agenda/turnos`). The lazy expiry
+    lives in the repository query, so an expired offer stops blocking instantly.
+    """
+    retenciones = await uow.lista_espera.retenciones_vigentes(
+        profesional_id=profesional_id,
+        sillon_id=sillon_id,
+        desde=inicio,
+        hasta=fin,
+        now=datetime.now(timezone.utc),
+        exclude_id=retencion_excluida,
+    )
+    if retenciones:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "El horario está retenido por una oferta de lista de espera"
+            ),
+        )
     if es_sobreturno:
         return
     solapados = await uow.turnos.list_solapados(
@@ -221,6 +243,8 @@ async def reprogramar_turno(
     consultorio_id: uuid.UUID,
     turno: Turno,
     comando: ComandoReprogramar,
+    *,
+    retencion_excluida: uuid.UUID | None = None,
 ) -> Turno:
     """Apply the same agenda/block/overlap rules to a moved appointment."""
     if turno.estado in ESTADOS_TERMINALES:
@@ -265,6 +289,7 @@ async def reprogramar_turno(
         fin=nuevo_fin,
         es_sobreturno=turno.es_sobreturno,
         exclude_id=turno.id,
+        retencion_excluida=retencion_excluida,
     )
 
     turno.inicio = nuevo_inicio
@@ -286,6 +311,8 @@ async def crear_turno(
     uow: UnitOfWork,
     consultorio_id: uuid.UUID,
     comando: ComandoTurno,
+    *,
+    retencion_excluida: uuid.UUID | None = None,
 ) -> Turno:
     """Validate every RN-TU rule and persist a `reservado` appointment."""
     _paciente, profesional, _sillon, prestacion = await recursos(
@@ -313,6 +340,7 @@ async def crear_turno(
         inicio=comando.inicio,
         fin=fin,
         es_sobreturno=comando.es_sobreturno,
+        retencion_excluida=retencion_excluida,
     )
 
     turno = Turno(

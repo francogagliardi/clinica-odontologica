@@ -10,7 +10,9 @@ from app.api import (
     auth,
     bloqueos,
     health,
+    lista_espera,
     obras_sociales,
+    ofertas,
     pacientes,
     prestaciones,
     profesionales,
@@ -58,6 +60,8 @@ app.include_router(bloqueos.router)
 app.include_router(pacientes.router)
 app.include_router(obras_sociales.router)
 app.include_router(turnos.router)
+app.include_router(lista_espera.router)
 app.include_router(publico.router)
+app.include_router(ofertas.router)
 app.include_router(recordatorios.router)
 app.include_router(webhooks.router)

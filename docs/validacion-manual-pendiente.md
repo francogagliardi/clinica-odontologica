@@ -97,6 +97,22 @@ API: `http://127.0.0.1:8000/docs` (usuario `admin@clinica.test`; contraseña en 
 | 10 | Reenvío manual | `POST /notificaciones/{id}/reenviar` como admin | 201, nuevo mensaje `pendiente` |
 | 11 | Proveedor caído | Simular fallo del worker | Reintento con backoff; al máximo, `fallido` + auditoría |
 
+## C-10 — Lista de espera automática
+
+| # | Qué probar | Cómo | Esperado |
+|---|---|---|---|
+| 1 | Alta en la lista | `POST /lista-espera` (recepción) con paciente + prestación | 201, estado `pendiente`, `orden` creciente |
+| 2 | Duplicado | Repetir la misma alta | 409, no se crea otra fila |
+| 3 | Listado y baja | `GET /lista-espera` y `DELETE /lista-espera/{id}` de una pendiente | 200 en orden FIFO; la baja responde 200 y desaparece |
+| 4 | Slot retenido | Con una entrada pendiente, cancelar un turno compatible | La entrada pasa a `ofrecido`; el horario desaparece de la disponibilidad pública y del backoffice |
+| 5 | Bloqueo de altas | `POST /turnos` y `PATCH /reprogramar` sobre el horario retenido (también con sobreturno) | 409 en todos los casos |
+| 6 | Mensaje y enlace | Correr el worker de recordatorios una vez | Mensaje `oferta_hueco` pendiente/encolado y `GET /reservar/oferta/{token}` 200 con prestación, profesional y vencimiento |
+| 7 | Aceptar | `POST /reservar/oferta/{token}/aceptar` | 200 con el turno en el profesional y sillón retenidos; entrada `convertido`; el slot queda ocupado por el turno |
+| 8 | Rechazar | Con dos entradas compatibles, rechazar la primera | 200; la segunda recibe el mismo horario y un mensaje nuevo |
+| 9 | Vencimiento | Forzar `oferta_expira_en = now() - interval '1 minute'` y correr el worker | La entrada pasa a `vencido`, rota a la siguiente; sin más entradas el slot vuelve a disponibilidad |
+| 10 | Webhook de oferta | Responder «aceptar»/«rechazar» firmado sobre el mensaje de oferta | 200 `aplicado=true`; un solo turno; el evento duplicado responde `aplicado=false` |
+| 11 | RBAC | `GET /lista-espera` con odontólogo/asistente/auditor y `POST` con odontólogo | 200 de lectura (el odontólogo solo sus entradas) y 403 en escritura |
+
 ## Prueba final de la página
 
 Cuando estén todos los changes:

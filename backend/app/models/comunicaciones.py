@@ -29,7 +29,10 @@ _ESTADOS_RECORDATORIO = (
     "'pendiente','encolado','enviado','fallido','cancelado'"
 )
 _ESTADOS_ENVIO = "'pendiente','enviado','fallido'"
-_RESPUESTAS = "'ninguna','confirmado','cancelado','reprogramado','derivado'"
+_RESPUESTAS = (
+    "'ninguna','confirmado','cancelado','reprogramado','derivado',"
+    "'aceptado','rechazado'"
+)
 _PLANTILLAS = "'recordatorio','confirmacion','oferta_hueco'"
 
 
@@ -96,6 +99,10 @@ class MensajeWhatsApp(Base):
         CheckConstraint(
             f"respuesta IN ({_RESPUESTAS})", name="respuesta_valida"
         ),
+        CheckConstraint(
+            "turno_id IS NOT NULL OR lista_espera_id IS NOT NULL",
+            name="turno_o_lista_espera",
+        ),
         Index(
             "uq_mensajes_whatsapp_proveedor",
             "proveedor_mensaje_id",
@@ -108,6 +115,7 @@ class MensajeWhatsApp(Base):
             "proximo_intento",
         ),
         Index("ix_mensajes_whatsapp_turno", "turno_id"),
+        Index("ix_mensajes_whatsapp_lista_espera", "lista_espera_id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -118,10 +126,15 @@ class MensajeWhatsApp(Base):
         ForeignKey("recordatorios.id", ondelete="RESTRICT"),
         nullable=True,
     )
-    turno_id: Mapped[uuid.UUID] = mapped_column(
+    turno_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid,
         ForeignKey("turnos.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
+    )
+    lista_espera_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("entradas_lista_espera.id", ondelete="RESTRICT"),
+        nullable=True,
     )
     plantilla: Mapped[str] = mapped_column(String(20), nullable=False)
     estado_envio: Mapped[str] = mapped_column(

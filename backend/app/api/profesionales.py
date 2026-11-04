@@ -6,7 +6,7 @@ by the pure function in `app.domain.agenda`, so C-06 can reuse it.
 """
 
 import uuid
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -365,6 +365,13 @@ async def disponibilidad(
         desde=inicio_dia,
         hasta=fin_dia,
     )
+    retenciones = await uow.lista_espera.list_retenciones_en_rango(
+        desde=inicio_dia,
+        hasta=fin_dia,
+        now=datetime.now(timezone.utc),
+        profesional_id=profesional.id,
+        sillon_id=sillon_id,
+    )
 
     slots = calcular_disponibilidad(
         fecha=fecha,
@@ -382,6 +389,14 @@ async def disponibilidad(
         turnos=[
             RangoBloqueo(desde=turno.inicio, hasta=turno.fin)
             for turno in turnos
+        ],
+        retenciones=[
+            RangoBloqueo(
+                desde=retencion.oferta_inicio, hasta=retencion.oferta_fin
+            )
+            for retencion in retenciones
+            if retencion.oferta_inicio is not None
+            and retencion.oferta_fin is not None
         ],
     )
     return [SlotResponse(inicio=slot.inicio, fin=slot.fin) for slot in slots]

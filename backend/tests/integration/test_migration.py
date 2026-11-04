@@ -88,7 +88,7 @@ def test_upgrade_crea_tablas_columnas_e_indices(engine) -> None:
 
     async def scenario() -> None:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0008_whatsapp_recordatorios"
+        assert snapshot["version"] == "0009_lista_espera"
         assert snapshot["tables"] == set(Base.metadata.tables) | {
             "alembic_version"
         }
@@ -247,6 +247,7 @@ def test_c05_downgrade_y_upgrade_restaura_solo_sus_tablas(
                 "turnos",
                 "recordatorios",
                 "mensajes_whatsapp",
+                "entradas_lista_espera",
             }
             | {"alembic_version"}
         )
@@ -260,7 +261,7 @@ def test_c05_downgrade_y_upgrade_restaura_solo_sus_tablas(
         return await _snapshot(engine)
 
     restored = run(after_upgrade())
-    assert restored["version"] == "0008_whatsapp_recordatorios"
+    assert restored["version"] == "0009_lista_espera"
     assert {"pacientes", "obras_sociales", "turnos"} <= restored["tables"]
 
 
@@ -287,7 +288,7 @@ def test_c06_downgrade_y_upgrade_restaura_turnos(
         excludes = set(
             await _exclude_constraints(engine)
         )
-        assert snapshot["version"] == "0008_whatsapp_recordatorios"
+        assert snapshot["version"] == "0009_lista_espera"
         assert "turnos" in snapshot["tables"]
         assert {"ex_turnos_profesional", "ex_turnos_sillon"} <= excludes
         return snapshot
@@ -316,7 +317,7 @@ def test_c07_downgrade_y_upgrade_restaura_la_sena(
 
     async def after_upgrade() -> dict[str, object]:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0008_whatsapp_recordatorios"
+        assert snapshot["version"] == "0009_lista_espera"
         assert ("turnos", "sena_estado") in snapshot["columns"]
         return snapshot
 
@@ -344,11 +345,67 @@ def test_c08_downgrade_y_upgrade_restaura_mensajeria(
 
     async def after_upgrade() -> dict[str, object]:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0008_whatsapp_recordatorios"
+        assert snapshot["version"] == "0009_lista_espera"
         assert {"recordatorios", "mensajes_whatsapp"} <= snapshot["tables"]
         return snapshot
 
     run(after_upgrade())
+
+
+def test_c10_downgrade_y_upgrade_restaura_la_lista_de_espera(
+    migrated_database: str, engine
+) -> None:
+    """Edge: 0009 ⇄ 0008 is reversible and only owns the waiting list."""
+
+    _alembic(
+        "downgrade", "0008_whatsapp_recordatorios", database_url=migrated_database
+    )
+
+    async def after_downgrade() -> dict[str, object]:
+        snapshot = await _snapshot(engine)
+        assert snapshot["version"] == "0008_whatsapp_recordatorios"
+        assert "entradas_lista_espera" not in snapshot["tables"]
+        assert (
+            "mensajes_whatsapp",
+            "lista_espera_id",
+        ) not in snapshot["columns"]
+        assert not {
+            "ex_lista_espera_profesional",
+            "ex_lista_espera_sillon",
+        } & set(await _exclude_constraints(engine))
+        return snapshot
+
+    run(after_downgrade())
+
+    _alembic("upgrade", "head", database_url=migrated_database)
+
+    async def after_upgrade() -> dict[str, object]:
+        snapshot = await _snapshot(engine)
+        assert snapshot["version"] == "0009_lista_espera"
+        assert "entradas_lista_espera" in snapshot["tables"]
+        assert ("mensajes_whatsapp", "lista_espera_id") in snapshot["columns"]
+        assert {
+            "ex_lista_espera_profesional",
+            "ex_lista_espera_sillon",
+        } <= set(await _exclude_constraints(engine))
+        assert ("mensajes_whatsapp", "turno_id") in await _columnas_nullable(
+            engine
+        )
+        return snapshot
+
+    run(after_upgrade())
+
+
+async def _columnas_nullable(engine) -> set[tuple[str, str]]:
+    async with engine.connect() as connection:
+        rows = await connection.execute(
+            text(
+                "SELECT table_name, column_name "
+                "FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND is_nullable = 'YES'"
+            )
+        )
+        return {(table, column) for table, column in rows.all()}
 
 
 async def _exclude_constraints(engine) -> list[str]:

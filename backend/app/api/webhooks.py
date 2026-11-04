@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import ValidationError
 
-from app.api.deps import get_settings, get_uow
+from app.api.deps import get_redis, get_settings, get_uow
 from app.application.webhooks import firma_valida, procesar_webhook
 from app.core.settings import Settings
 from app.infrastructure.uow import UnitOfWork
@@ -23,6 +23,7 @@ async def whatsapp_webhook(
     request: Request,
     uow: Annotated[UnitOfWork, Depends(get_uow)],
     settings: Annotated[Settings, Depends(get_settings)],
+    redis_client: Annotated[object | None, Depends(get_redis)],
     x_hub_signature_256: Annotated[
         str | None, Header(alias="X-Hub-Signature-256")
     ] = None,
@@ -43,5 +44,11 @@ async def whatsapp_webhook(
             detail=error.errors()[0]["msg"],
         ) from error
 
-    resultados = await procesar_webhook(uow, payload.mensajes)
+    resultados = await procesar_webhook(
+        uow,
+        payload.mensajes,
+        base_url=settings.app_base_url,
+        ttl_minutos=settings.lista_espera_oferta_ttl_minutos,
+        redis_client=redis_client,
+    )
     return WebhookResponse(resultados=resultados)

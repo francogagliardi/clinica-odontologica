@@ -56,15 +56,16 @@ def calcular_disponibilidad(
     duracion_min: int | None = None,
     bloqueos: tuple[RangoBloqueo, ...] | list[RangoBloqueo] = (),
     turnos: tuple[RangoBloqueo, ...] | list[RangoBloqueo] = (),
+    retenciones: tuple[RangoBloqueo, ...] | list[RangoBloqueo] = (),
 ) -> list[Slot]:
-    """Return consecutive free slots for `fecha`, excluding blocks and turns.
+    """Return consecutive free slots for `fecha`, excluding occupied ranges.
 
     - A weekday outside `dias_atencion` yields no slots.
     - The slot duration is the service duration or the professional base one
       (RN-TU-02).
     - The last slot is discarded when it does not fit before `hora_hasta`.
-    - Slots overlapping a block (RN-TU-07) or an active turn (RN-TU-01) are
-      excluded.
+    - Slots overlapping a block (RN-TU-07), an active turn (RN-TU-01) or a live
+      waiting-list offer (RN-TU-05) are excluded.
     """
     if fecha.weekday() not in agenda.dias_atencion:
         return []
@@ -84,7 +85,7 @@ def calcular_disponibilidad(
         fecha, agenda.hora_hasta, tzinfo=ARGENTINA_OFFSET
     )
     paso = timedelta(minutes=duracion)
-    ocupados = tuple(bloqueos) + tuple(turnos)
+    ocupados = tuple(bloqueos) + tuple(turnos) + tuple(retenciones)
 
     slots: list[Slot] = []
     while cursor + paso <= limite:

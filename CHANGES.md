@@ -298,13 +298,14 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux/Integ.)    │ A
 ---
 
 ### [C-10] `lista-espera-automatica`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado 2026-11-04 (archivado en `openspec/changes/archive/`) — 516 tests backend en verde
 - **Scope**: Lista de espera FIFO sobre huecos liberados (US-003, Flujo 5)
-  - Modelo `EntradaListaEspera` (paciente/prestación/profesional opcional, orden, estado pendiente/ofrecido/convertido/vencido)
-  - Trigger cancelación → busca compatibles por orden → ofrece por WhatsApp con vencimiento configurable (job Redis) → acepta crea turno / vence-rechaza pasa al siguiente (RN-TU-05); si nadie acepta, el hueco vuelve a disponibilidad pública
-  - Endpoints `/lista-espera` (alta, baja, estado de oferta)
-  - Migración 005b: entrada_lista_espera
-  - Tests: oferta respeta FIFO, vencimiento rota al siguiente, conversión crea turno sin solapamiento
+  - Modelo `EntradaListaEspera` (paciente/prestación/profesional opcional, orden identidad, estado pendiente/ofrecido/convertido/vencido) con retención del hueco por exclusion constraints GiST
+  - Trigger cancelación → retiene el hueco y ofrece por WhatsApp con vencimiento configurable (tick del scheduler) → acepta crea turno / vence-rechaza pasa al siguiente (RN-TU-05); si nadie acepta, el hueco vuelve a disponibilidad pública
+  - Mientras la oferta está vigente, el slot se oculta en disponibilidad pública/backoffice y alta/reprogramación/sobreturno responden 409
+  - Endpoints `/lista-espera` (alta, baja, estado de oferta) + `/reservar/oferta/{token}` (consultar/aceptar/rechazar) y webhook de ofertas
+  - Migración `0009_lista_espera`: entradas + ajustes a `mensajes_whatsapp`
+  - Tests: oferta respeta FIFO, vencimiento rota al siguiente, conversión crea turno sin solapamiento, retención atómica y concurrencia
 - **Dependencias**: C-06, C-09
 - **Governance**: MEDIO
 - **Leer antes**:

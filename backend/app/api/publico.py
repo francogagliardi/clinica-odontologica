@@ -20,6 +20,7 @@ from app.api.deps import (
     reject_unexpected_query,
     reject_unexpected_query_except,
 )
+from app.application.lista_espera import registrar_hueco_liberado
 from app.application.turnos import (
     ComandoTurno,
     crear_turno,
@@ -196,6 +197,12 @@ async def disponibilidad(
         desde=inicio_dia,
         hasta=fin_dia,
     )
+    retenciones = await uow.lista_espera.list_retenciones_en_rango(
+        desde=inicio_dia,
+        hasta=fin_dia,
+        now=datetime.now(timezone.utc),
+        profesional_id=profesional.id,
+    )
     slots = calcular_disponibilidad(
         fecha=fecha,
         agenda=AgendaConfigDominio(
@@ -212,6 +219,14 @@ async def disponibilidad(
         turnos=[
             RangoBloqueo(desde=turno.inicio, hasta=turno.fin)
             for turno in turnos
+        ],
+        retenciones=[
+            RangoBloqueo(
+                desde=retencion.oferta_inicio, hasta=retencion.oferta_fin
+            )
+            for retencion in retenciones
+            if retencion.oferta_inicio is not None
+            and retencion.oferta_fin is not None
         ],
     )
     return [SlotPublico(inicio=slot.inicio, fin=slot.fin) for slot in slots]
@@ -513,6 +528,8 @@ async def confirmar(
 async def cancelar(
     token: str,
     uow: Annotated[UnitOfWork, Depends(get_uow)],
+    redis_client: Annotated[object | None, Depends(get_redis)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> AccionResponse:
     turno = await _turno_del_token(uow, token)
     if not puede_transicionar(turno.estado, "cancelado"):
@@ -534,5 +551,12 @@ async def cancelar(
     from app.application.recordatorios import cancelar_recordatorios
 
     await cancelar_recordatorios(uow, turno.id)
+    await registrar_hueco_liberado(
+        uow,
+        turno,
+        base_url=settings.app_base_url,
+        ttl_minutos=settings.lista_espera_oferta_ttl_minutos,
+        redis_client=redis_client,
+    )
     await uow.session.flush()
     return AccionResponse(estado=turno.estado, sena_perdida=sena_perdida)

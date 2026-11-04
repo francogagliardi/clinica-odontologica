@@ -20,7 +20,8 @@ class MensajeResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: uuid.UUID
-    turno_id: uuid.UUID
+    turno_id: uuid.UUID | None
+    lista_espera_id: uuid.UUID | None = None
     recordatorio_id: uuid.UUID | None
     plantilla: str
     estado_envio: str

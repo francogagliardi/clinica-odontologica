@@ -73,9 +73,9 @@ El sistema SHALL permitir administrar los sillones del consultorio (nombre únic
 
 ### Requirement: Disponibilidad base por profesional
 
-El sistema SHALL calcular los slots disponibles de un profesional para una fecha: día fuera de `dias_atencion` devuelve lista vacía; la duración es la de la prestación o `duracion_base_min` (RN-TU-02); genera intervalos consecutivos descartando el último incompleto; y excluye los solapados con bloqueos del profesional o del sillón (RN-TU-07) y con turnos en estado activo (RN-TU-01). Con C-06 la disponibilidad es real, no solo base.
+El sistema SHALL calcular los slots disponibles de un profesional para una fecha: día fuera de `dias_atencion` devuelve lista vacía; la duración es la de la prestación o `duracion_base_min` (RN-TU-02); genera intervalos consecutivos descartando el último incompleto; y excluye los solapados con bloqueos del profesional o del sillón (RN-TU-07), con turnos en estado activo (RN-TU-01) y con retenciones vigentes de lista de espera (RN-TU-05). Con C-06 la disponibilidad es real, no solo base.
 
-**Trazabilidad**: RN-TU-01, RN-TU-02, RN-TU-07, `06_funcionalidades.md` US-001/CA-1, `07_flujos_principales.md` §Flujo 1.
+**Trazabilidad**: RN-TU-01, RN-TU-02, RN-TU-05, RN-TU-07, `06_funcionalidades.md` US-001/CA-1, `07_flujos_principales.md` §Flujo 1, `agenda/lista-espera` §Retención atómica del hueco ofrecido.
 
 #### Scenario: Slots consecutivos con la duración de la prestación
 - **WHEN** se consulta `GET /profesionales/{id}/disponibilidad?fecha=...&prestacion_id=...` para un día habilitado
@@ -117,3 +117,11 @@ El sistema SHALL calcular los slots disponibles de un profesional para una fecha
 #### Scenario: Día completo sin huecos
 - **WHEN** todos los slots del día están ocupados por turnos activos o bloqueos
 - **THEN** el sistema responde HTTP 200 con lista vacía
+
+#### Scenario: Retención vigente oculta el slot del backoffice
+- **WHEN** una oferta de lista de espera vigente retiene un intervalo del profesional consultado
+- **THEN** ese slot no aparece en `GET /profesionales/{id}/disponibilidad` aunque no exista un turno activo
+
+#### Scenario: Retención vencida no oculta el slot del backoffice
+- **WHEN** la retención tiene `oferta_expira_en` en el pasado y el worker todavía no la barrió
+- **THEN** el slot vuelve a aparecer en la disponibilidad del backoffice

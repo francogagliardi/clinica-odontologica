@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     arca_key: str
     app_base_url: str = "http://127.0.0.1:8080"
     gestion_token_ttl_minutes: int = 10080
+    lista_espera_oferta_ttl_minutos: int = 30
     cors_allow_origins: str = "http://127.0.0.1:8080,http://localhost:8080"
 
     @property

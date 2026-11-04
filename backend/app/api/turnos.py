@@ -9,16 +9,20 @@ from pydantic import ValidationError
 
 from app.api.deps import (
     get_consultorio_demo_id,
+    get_redis,
+    get_settings,
     get_uow,
     reject_unexpected_query_except,
     require_role,
 )
+from app.application.lista_espera import registrar_hueco_liberado
 from app.application.turnos import (
     ComandoReprogramar,
     ComandoTurno,
     crear_turno,
     reprogramar_turno as reprogramar_turno_service,
 )
+from app.core.settings import Settings
 from app.domain.agenda import ARGENTINA_OFFSET
 from app.domain.turnos import ESTADOS_TERMINALES, puede_transicionar
 from app.infrastructure.uow import UnitOfWork
@@ -213,6 +217,8 @@ async def update_estado(
     current: Annotated[Usuario, Depends(_lectura)],
     uow: Annotated[UnitOfWork, Depends(get_uow)],
     consultorio_id: Annotated[uuid.UUID, Depends(get_consultorio_demo_id)],
+    redis_client: Annotated[object | None, Depends(get_redis)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> TurnoResponse:
     turno = await _activo(uow, consultorio_id, turno_id)
     await _autorizar_estado(uow, current, turno)
@@ -223,11 +229,22 @@ async def update_estado(
                 f"Transición inválida: {turno.estado} → {payload.estado}"
             ),
         )
+    anterior = turno.estado
     turno.estado = payload.estado
     if payload.estado in ESTADOS_TERMINALES:
         from app.application.recordatorios import cancelar_recordatorios
 
         await cancelar_recordatorios(uow, turno.id)
+    if payload.estado == "cancelado" and anterior != "cancelado":
+        # RN-TU-05: the freed slot is offered to the waiting list in the same
+        # transaction. Repeating the same state stays idempotent (no offer).
+        await registrar_hueco_liberado(
+            uow,
+            turno,
+            base_url=settings.app_base_url,
+            ttl_minutos=settings.lista_espera_oferta_ttl_minutos,
+            redis_client=redis_client,
+        )
     await uow.session.flush()
     return _to_response(turno)
 

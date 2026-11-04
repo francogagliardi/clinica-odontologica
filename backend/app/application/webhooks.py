@@ -8,11 +8,18 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 from sqlalchemy import select
 
+from app.application.lista_espera import (
+    OfertaAceptada,
+    aceptar_entrada,
+    oferta_vigente,
+    rechazar_entrada,
+    registrar_hueco_liberado,
+)
 from app.application.turnos import ComandoReprogramar, reprogramar_turno
 from app.domain.turnos import ESTADOS_TERMINALES, puede_transicionar
 from app.infrastructure.uow import UnitOfWork
 from app.models.comunicaciones import MensajeWhatsApp
-from app.models.security import RegistroAuditoria
+from app.models.lista_espera import EntradaListaEspera
 from app.schemas.comunicaciones import WebhookMensaje, WebhookResultado
 
 
@@ -42,6 +49,9 @@ async def procesar_webhook(
     mensajes: list[WebhookMensaje],
     *,
     now: datetime | None = None,
+    base_url: str = "",
+    ttl_minutos: int = 30,
+    redis_client: object | None = None,
 ) -> list[WebhookResultado]:
     momento = now or datetime.now(timezone.utc)
     resultados: list[WebhookResultado] = []
@@ -59,6 +69,21 @@ async def procesar_webhook(
             resultados.append(
                 WebhookResultado(
                     id=entrada.id, aplicado=False, derivado=False
+                )
+            )
+            continue
+
+        if mensaje.plantilla == "oferta_hueco":
+            # D9: an offer reply is resolved before any turno lookup.
+            resultados.append(
+                await _procesar_oferta(
+                    uow,
+                    entrada,
+                    mensaje,
+                    momento,
+                    base_url=base_url,
+                    ttl_minutos=ttl_minutos,
+                    redis_client=redis_client,
                 )
             )
             continue
@@ -94,12 +119,14 @@ async def procesar_webhook(
             ):
                 turno.estado = "cancelado"
                 mensaje.respuesta = "cancelado"
-                uow.session.add(
-                    RegistroAuditoria(
-                        accion="hueco_liberado",
-                        entidad="turno",
-                        entidad_id=str(turno.id),
-                    )
+                # Single trigger (D1): audit once and offer the freed slot.
+                await registrar_hueco_liberado(
+                    uow,
+                    turno,
+                    now=momento,
+                    base_url=base_url,
+                    ttl_minutos=ttl_minutos,
+                    redis_client=redis_client,
                 )
                 aplicado = True
             else:
@@ -134,3 +161,62 @@ async def procesar_webhook(
         )
 
     return resultados
+
+
+def _aplicado(mensaje: WebhookMensaje) -> WebhookResultado:
+    return WebhookResultado(
+        id=mensaje.id, aplicado=True, derivado=False
+    )
+
+
+async def _procesar_oferta(
+    uow: UnitOfWork,
+    webhook_mensaje: WebhookMensaje,
+    mensaje: MensajeWhatsApp,
+    momento: datetime,
+    *,
+    base_url: str,
+    ttl_minutos: int,
+    redis_client: object | None,
+) -> WebhookResultado:
+    """Apply an offer reply with the same services as the public link (D9)."""
+    entrada: EntradaListaEspera | None = None
+    if mensaje.lista_espera_id is not None:
+        entrada = await uow.lista_espera.get_for_update(
+            mensaje.lista_espera_id
+        )
+
+    accion = webhook_mensaje.respuesta.strip().lower()
+    if accion in {"aceptar", "aceptado"} and oferta_vigente(entrada, momento):
+        assert entrada is not None
+        resultado = await aceptar_entrada(
+            uow,
+            entrada,
+            now=momento,
+            base_url=base_url,
+            ttl_minutos=ttl_minutos,
+            redis_client=redis_client,
+        )
+        if isinstance(resultado, OfertaAceptada):
+            mensaje.respuesta = "aceptado"
+            await uow.session.flush()
+            return _aplicado(webhook_mensaje)
+    elif accion in {"rechazar", "rechazado"} and oferta_vigente(
+        entrada, momento
+    ):
+        assert entrada is not None
+        await rechazar_entrada(
+            uow,
+            entrada,
+            now=momento,
+            base_url=base_url,
+            ttl_minutos=ttl_minutos,
+            redis_client=redis_client,
+        )
+        mensaje.respuesta = "rechazado"
+        await uow.session.flush()
+        return _aplicado(webhook_mensaje)
+
+    mensaje.respuesta = "derivado"
+    await uow.session.flush()
+    return _derivado(webhook_mensaje)

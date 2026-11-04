@@ -11,6 +11,7 @@ import uuid
 
 import redis.asyncio as redis_async
 
+from app.application.lista_espera import procesar_ofertas_vencidas
 from app.application.recordatorios import (
     procesar_entrante,
     procesar_reintentos,
@@ -32,12 +33,20 @@ async def run_once_recordatorios(settings: Settings) -> int:
     factory = create_session_factory(engine)
     try:
         async with UnitOfWork(factory) as uow:
-            return await procesar_vencidos(
+            recordatorios = await procesar_vencidos(
                 uow,
                 client,
                 base_url=settings.app_base_url,
                 token_ttl_minutes=settings.gestion_token_ttl_minutes,
             )
+            # The same tick expires due waiting-list offers and rotates them.
+            ofertas = await procesar_ofertas_vencidas(
+                uow,
+                client,
+                base_url=settings.app_base_url,
+                ttl_minutos=settings.lista_espera_oferta_ttl_minutos,
+            )
+            return recordatorios + ofertas
     finally:
         await client.aclose()
         await engine.dispose()
