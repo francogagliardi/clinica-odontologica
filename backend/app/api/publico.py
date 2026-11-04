@@ -531,5 +531,8 @@ async def cancelar(
     sena_perdida = tarde and turno.sena_estado in {"pendiente", "pagada"}
     if sena_perdida:
         turno.sena_estado = "perdida"
+    from app.application.recordatorios import cancelar_recordatorios
+
+    await cancelar_recordatorios(uow, turno.id)
     await uow.session.flush()
     return AccionResponse(estado=turno.estado, sena_perdida=sena_perdida)

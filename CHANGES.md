@@ -279,14 +279,14 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux/Integ.)    │ A
 ---
 
 ### [C-09] `whatsapp-recordatorios`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado 2026-11-03 (archivado en `openspec/changes/archive/`) — 432 tests backend en verde
 - **Scope**: Recordatorios 48/24 h + gestión por WhatsApp oficial (US-010, US-001 CA-3, Flujo 2)
-  - Modelos `Recordatorio (turno_id, programado_para, estado)` + `MensajeWhatsApp (plantilla, estado_envio, respuesta)` — persistencia en PostgreSQL, nunca solo Redis
+  - Modelos `Recordatorio (turno_id, ventana, programado_para, estado)` + `MensajeWhatsApp (plantilla, estado_envio, respuesta, proveedor_mensaje_id, intentos)` — persistencia en PostgreSQL, nunca solo Redis
   - Scheduler: programación 48/24 h en Redis `recordatorios:due`; envío vía cola `whatsapp:send` consumida por workers con reintento exponencial (plantillas mínimas: recordatorio, confirmación, oferta de hueco; capa de prueba en v1, DD-03/SU-03)
-  - Webhook inbound idempotente: confirma → `confirmado`; cancela → libera + dispara lista de espera (RN-TU-05); reprograma → valida RN-TU-01; token vencido/fuera de plazo → deriva a recepción; fallo de envío → reintento + alerta a recepción
-  - Endpoints `/recordatorios, /notificaciones` + webhook; spike temprano de aprobación de plantillas (riesgo Discovery)
-  - Migración 005a: recordatorio + mensaje_whatsapp
-  - Tests: inbound duplicado aplica una vez, vencimiento de token, caída de API → reintento sin duplicar
+  - Webhook inbound idempotente: confirma → `confirmado`; cancela → libera + punto de extensión para lista de espera (RN-TU-05); reprograma → valida RN-TU-01; token vencido/fuera de plazo → deriva a recepción; fallo de envío → reintento + alerta de auditoría
+  - Endpoints `/recordatorios, /notificaciones` + `/webhooks/whatsapp`; workers con perfil Compose `workers`
+  - Migración `0008_whatsapp_recordatorios`: recordatorios + mensajes_whatsapp
+  - Tests: inbound duplicado aplica una vez, vencimiento de token, caída del proveedor → reintento sin duplicar
 - **Dependencias**: C-06
 - **Governance**: ALTO
 - **Leer antes**:

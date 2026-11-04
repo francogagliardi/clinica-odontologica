@@ -9,6 +9,7 @@ from app.models.agenda import (
 )
 from app.models.base import AuditMixin, Base
 from app.models.comercial import ObraSocial, Prestacion
+from app.models.comunicaciones import MensajeWhatsApp, Recordatorio
 from app.models.pacientes import Paciente
 from app.models.security import (
     Consultorio,
@@ -24,11 +25,13 @@ __all__ = [
     "Base",
     "Bloqueo",
     "Consultorio",
+    "MensajeWhatsApp",
     "ObraSocial",
     "Paciente",
     "Prestacion",
     "Profesional",
     "ProfesionalSillon",
+    "Recordatorio",
     "RegistroAuditoria",
     "Rol",
     "Sillon",

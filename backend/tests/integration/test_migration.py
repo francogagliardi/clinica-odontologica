@@ -88,7 +88,7 @@ def test_upgrade_crea_tablas_columnas_e_indices(engine) -> None:
 
     async def scenario() -> None:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0007_reserva_publica"
+        assert snapshot["version"] == "0008_whatsapp_recordatorios"
         assert snapshot["tables"] == set(Base.metadata.tables) | {
             "alembic_version"
         }
@@ -241,7 +241,13 @@ def test_c05_downgrade_y_upgrade_restaura_solo_sus_tablas(
         assert snapshot["version"] == "0004_recursos_agendables"
         assert snapshot["tables"] == (
             set(Base.metadata.tables)
-            - {"pacientes", "obras_sociales", "turnos"}
+            - {
+                "pacientes",
+                "obras_sociales",
+                "turnos",
+                "recordatorios",
+                "mensajes_whatsapp",
+            }
             | {"alembic_version"}
         )
         return snapshot
@@ -254,7 +260,7 @@ def test_c05_downgrade_y_upgrade_restaura_solo_sus_tablas(
         return await _snapshot(engine)
 
     restored = run(after_upgrade())
-    assert restored["version"] == "0007_reserva_publica"
+    assert restored["version"] == "0008_whatsapp_recordatorios"
     assert {"pacientes", "obras_sociales", "turnos"} <= restored["tables"]
 
 
@@ -281,7 +287,7 @@ def test_c06_downgrade_y_upgrade_restaura_turnos(
         excludes = set(
             await _exclude_constraints(engine)
         )
-        assert snapshot["version"] == "0007_reserva_publica"
+        assert snapshot["version"] == "0008_whatsapp_recordatorios"
         assert "turnos" in snapshot["tables"]
         assert {"ex_turnos_profesional", "ex_turnos_sillon"} <= excludes
         return snapshot
@@ -310,8 +316,36 @@ def test_c07_downgrade_y_upgrade_restaura_la_sena(
 
     async def after_upgrade() -> dict[str, object]:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0007_reserva_publica"
+        assert snapshot["version"] == "0008_whatsapp_recordatorios"
         assert ("turnos", "sena_estado") in snapshot["columns"]
+        return snapshot
+
+    run(after_upgrade())
+
+
+def test_c08_downgrade_y_upgrade_restaura_mensajeria(
+    migrated_database: str, engine
+) -> None:
+    """Edge: 0008 ⇄ 0007 is reversible and only owns the messaging tables."""
+
+    _alembic("downgrade", "0007_reserva_publica", database_url=migrated_database)
+
+    async def after_downgrade() -> dict[str, object]:
+        snapshot = await _snapshot(engine)
+        assert snapshot["version"] == "0007_reserva_publica"
+        assert "recordatorios" not in snapshot["tables"]
+        assert "mensajes_whatsapp" not in snapshot["tables"]
+        assert "turnos" in snapshot["tables"]
+        return snapshot
+
+    run(after_downgrade())
+
+    _alembic("upgrade", "head", database_url=migrated_database)
+
+    async def after_upgrade() -> dict[str, object]:
+        snapshot = await _snapshot(engine)
+        assert snapshot["version"] == "0008_whatsapp_recordatorios"
+        assert {"recordatorios", "mensajes_whatsapp"} <= snapshot["tables"]
         return snapshot
 
     run(after_upgrade())

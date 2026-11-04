@@ -63,6 +63,38 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
 
+  worker-recordatorios:
+    profiles: ["workers"]
+    build:
+      context: ./backend
+    command: ["python", "-m", "app.workers", "recordatorios"]
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://clinica:${POSTGRES_PASSWORD:-changeme-generate-a-password}@db:5432/clinica
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker-whatsapp:
+    profiles: ["workers"]
+    build:
+      context: ./backend
+    command: ["python", "-m", "app.workers", "whatsapp"]
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://clinica:${POSTGRES_PASSWORD:-changeme-generate-a-password}@db:5432/clinica
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   pgdata:
   redisdata:

@@ -16,8 +16,10 @@ from app.api import (
     profesionales,
     publico,
     ready,
+    recordatorios,
     sillones,
     turnos,
+    webhooks,
 )
 from app.core import resources
 from app.core.settings import load_settings
@@ -57,3 +59,5 @@ app.include_router(pacientes.router)
 app.include_router(obras_sociales.router)
 app.include_router(turnos.router)
 app.include_router(publico.router)
+app.include_router(recordatorios.router)
+app.include_router(webhooks.router)

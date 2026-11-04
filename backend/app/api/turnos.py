@@ -6,7 +6,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import ValidationError
-from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import (
     get_consultorio_demo_id,
@@ -15,21 +14,13 @@ from app.api.deps import (
     require_role,
 )
 from app.application.turnos import (
+    ComandoReprogramar,
     ComandoTurno,
     crear_turno,
-    duracion_de,
-    recursos,
-    traducir_exclusion,
-    validar_agenda,
-    validar_bloqueos,
-    validar_solapamiento,
+    reprogramar_turno as reprogramar_turno_service,
 )
 from app.domain.agenda import ARGENTINA_OFFSET
-from app.domain.turnos import (
-    ESTADOS_TERMINALES,
-    calcular_fin,
-    puede_transicionar,
-)
+from app.domain.turnos import ESTADOS_TERMINALES, puede_transicionar
 from app.infrastructure.uow import UnitOfWork
 from app.models.agenda import Turno
 from app.models.security import Usuario
@@ -233,6 +224,10 @@ async def update_estado(
             ),
         )
     turno.estado = payload.estado
+    if payload.estado in ESTADOS_TERMINALES:
+        from app.application.recordatorios import cancelar_recordatorios
+
+        await cancelar_recordatorios(uow, turno.id)
     await uow.session.flush()
     return _to_response(turno)
 
@@ -273,55 +268,16 @@ async def reprogramar_turno(
             detail="El sillón no puede ser nulo",
         )
 
-    nuevo_inicio = payload.inicio or turno.inicio
-    nuevo_profesional_id = payload.profesional_id or turno.profesional_id
-    nuevo_sillon_id = payload.sillon_id or turno.sillon_id
-    nueva_prestacion_id = (
-        payload.prestacion_id
-        if "prestacion_id" in campos
-        else turno.prestacion_id
-    )
-
-    _paciente, profesional, _sillon, prestacion = await recursos(
+    turno = await reprogramar_turno_service(
         uow,
         consultorio_id,
-        paciente_id=turno.paciente_id,
-        profesional_id=nuevo_profesional_id,
-        sillon_id=nuevo_sillon_id,
-        prestacion_id=nueva_prestacion_id,
+        turno,
+        ComandoReprogramar(
+            inicio=payload.inicio,
+            profesional_id=payload.profesional_id,
+            sillon_id=payload.sillon_id,
+            prestacion_id=payload.prestacion_id,
+            cambiar_prestacion="prestacion_id" in campos,
+        ),
     )
-    nuevo_fin = calcular_fin(
-        nuevo_inicio, duracion_de(prestacion, profesional)
-    )
-    validar_agenda(profesional, nuevo_inicio, nuevo_fin)
-    await validar_bloqueos(
-        uow,
-        profesional_id=nuevo_profesional_id,
-        sillon_id=nuevo_sillon_id,
-        inicio=nuevo_inicio,
-        fin=nuevo_fin,
-    )
-    await validar_solapamiento(
-        uow,
-        consultorio_id=consultorio_id,
-        profesional_id=nuevo_profesional_id,
-        sillon_id=nuevo_sillon_id,
-        inicio=nuevo_inicio,
-        fin=nuevo_fin,
-        es_sobreturno=turno.es_sobreturno,
-        exclude_id=turno.id,
-    )
-
-    turno.inicio = nuevo_inicio
-    turno.fin = nuevo_fin
-    turno.profesional_id = nuevo_profesional_id
-    turno.sillon_id = nuevo_sillon_id
-    turno.prestacion_id = nueva_prestacion_id
-    try:
-        await uow.session.flush()
-    except IntegrityError as error:
-        conflicto = traducir_exclusion(error)
-        if conflicto is not None:
-            raise conflicto from error
-        raise
     return _to_response(turno)

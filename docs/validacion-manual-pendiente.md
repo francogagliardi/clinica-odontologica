@@ -81,6 +81,22 @@ API: `http://127.0.0.1:8000/docs` (usuario `admin@clinica.test`; contraseña en 
 | 10 | Rol odontólogo | Login de odontólogo | Solo puede arrastrar sus turnos |
 | 11 | Asistente/auditor | Login de esos roles | Agenda visible sin acciones |
 
+## C-09 — Recordatorios y webhook WhatsApp
+
+| # | Qué probar | Cómo | Esperado |
+|---|---|---|---|
+| 1 | Programación | Crear un turno a más de 48 h | Se crean recordatorios 48 h y 24 h (`GET /recordatorios?turno_id=...`) |
+| 2 | Worker de recordatorios | `python -m app.workers recordatorios` con un recordatorio vencido | Encola un mensaje y el recordatorio pasa a `encolado` |
+| 3 | Worker de WhatsApp | `python -m app.workers whatsapp` | El mensaje pasa a `enviado` (proveedor test) |
+| 4 | Webhook válido | Firmar el body con `WHATSAPP_APP_SECRET` y responder `confirmar` | 200, turno `confirmado` |
+| 5 | Webhook duplicado | Reenviar el mismo body | 200 `aplicado=false`, sin doble cambio |
+| 6 | Firma inválida | Enviar sin firma | 401 |
+| 7 | Cancelación | Webhook `cancelar` | 200, turno `cancelado` y evento `hueco_liberado` en auditoría |
+| 8 | Reprogramación | Webhook con `nueva_fecha` libre | 200, turno movido |
+| 9 | Colisión | `nueva_fecha` ocupada | 200 `derivado=true`, turno intacto |
+| 10 | Reenvío manual | `POST /notificaciones/{id}/reenviar` como admin | 201, nuevo mensaje `pendiente` |
+| 11 | Proveedor caído | Simular fallo del worker | Reintento con backoff; al máximo, `fallido` + auditoría |
+
 ## Prueba final de la página
 
 Cuando estén todos los changes:

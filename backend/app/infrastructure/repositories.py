@@ -17,11 +17,13 @@ from app.models import (
     Base,
     Bloqueo,
     Consultorio,
+    MensajeWhatsApp,
     ObraSocial,
     Paciente,
     Prestacion,
     Profesional,
     ProfesionalSillon,
+    Recordatorio,
     RegistroAuditoria,
     Rol,
     Sillon,
@@ -474,5 +476,51 @@ class TurnoRepository(BaseRepository[Turno]):
             Turno.fin > desde,
             or_(*recursos),
         )
+        result = await self._session.scalars(statement)
+        return list(result)
+
+
+class RecordatorioRepository(BaseRepository[Recordatorio]):
+    model = Recordatorio
+
+    async def list_rango(
+        self,
+        *,
+        desde: datetime | None = None,
+        hasta: datetime | None = None,
+        turno_id: uuid.UUID | None = None,
+    ) -> list[Recordatorio]:
+        statement = select(Recordatorio)
+        if desde is not None:
+            statement = statement.where(Recordatorio.programado_para >= desde)
+        if hasta is not None:
+            statement = statement.where(Recordatorio.programado_para <= hasta)
+        if turno_id is not None:
+            statement = statement.where(Recordatorio.turno_id == turno_id)
+        statement = statement.order_by(Recordatorio.programado_para)
+        result = await self._session.scalars(statement)
+        return list(result)
+
+
+class MensajeWhatsAppRepository(BaseRepository[MensajeWhatsApp]):
+    model = MensajeWhatsApp
+
+    async def list_rango(
+        self,
+        *,
+        desde: datetime | None = None,
+        hasta: datetime | None = None,
+        estado: str | None = None,
+    ) -> list[MensajeWhatsApp]:
+        statement = select(MensajeWhatsApp)
+        if desde is not None:
+            statement = statement.where(MensajeWhatsApp.created_at >= desde)
+        if hasta is not None:
+            statement = statement.where(MensajeWhatsApp.created_at <= hasta)
+        if estado is not None:
+            statement = statement.where(
+                MensajeWhatsApp.estado_envio == estado
+            )
+        statement = statement.order_by(MensajeWhatsApp.created_at.desc())
         result = await self._session.scalars(statement)
         return list(result)

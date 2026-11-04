@@ -12,11 +12,13 @@ from app.infrastructure.repositories import (
     AuditoriaRepository,
     BloqueoRepository,
     ConsultorioRepository,
+    MensajeWhatsAppRepository,
     ObraSocialRepository,
     PacienteRepository,
     PrestacionRepository,
     ProfesionalRepository,
     ProfesionalSillonRepository,
+    RecordatorioRepository,
     RolRepository,
     SillonRepository,
     TurnoRepository,
@@ -45,6 +47,8 @@ class UnitOfWork:
         self.obras_sociales = ObraSocialRepository(self._session)
         self.pacientes = PacienteRepository(self._session)
         self.turnos = TurnoRepository(self._session)
+        self.recordatorios = RecordatorioRepository(self._session)
+        self.mensajes = MensajeWhatsAppRepository(self._session)
         return self
 
     async def __aexit__(

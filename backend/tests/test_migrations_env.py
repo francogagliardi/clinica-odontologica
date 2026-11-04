@@ -41,7 +41,7 @@ def test_single_head_revision() -> None:
     config = Config(str(_BACKEND_DIR / "alembic.ini"))
     config.set_main_option("script_location", str(_BACKEND_DIR / "alembic"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["0007_reserva_publica"]
+    assert script.get_heads() == ["0008_whatsapp_recordatorios"]
 
 
 def test_c02_revision_chains_from_baseline() -> None:
@@ -107,3 +107,15 @@ def test_c07_revision_chains_from_c06() -> None:
         'down_revision: str | None = "0006_turnos_anti_solapamiento"' in source
     )
     assert "sena_estado" in source
+
+
+def test_c08_revision_chains_from_c07() -> None:
+    """0008 adds reminders and WhatsApp messages on top of the public booking."""
+    source = (
+        _BACKEND_DIR / "alembic" / "versions" / "0008_whatsapp_recordatorios.py"
+    ).read_text(encoding="utf-8")
+    assert (
+        'down_revision: str | None = "0007_reserva_publica"' in source
+    )
+    assert "recordatorios" in source
+    assert "mensajes_whatsapp" in source

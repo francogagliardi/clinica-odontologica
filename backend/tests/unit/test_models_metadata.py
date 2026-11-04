@@ -7,11 +7,13 @@ from app.models import (
     Base,
     Bloqueo,
     Consultorio,
+    MensajeWhatsApp,
     ObraSocial,
     Paciente,
     Prestacion,
     Profesional,
     ProfesionalSillon,
+    Recordatorio,
     RegistroAuditoria,
     Rol,
     Sillon,
@@ -36,6 +38,8 @@ EXPECTED_TABLES = {
     "pacientes",
     "obras_sociales",
     "turnos",
+    "recordatorios",
+    "mensajes_whatsapp",
 }
 
 
@@ -335,3 +339,37 @@ def test_turno_guarda_el_estado_de_la_sena() -> None:
     assert columna.nullable is False
     assert columna.default.arg == "no_requiere"
     assert str(columna.server_default.arg) == "'no_requiere'"
+
+
+def test_recordatorio_valida_ventana_y_estado() -> None:
+    sqltext = " ".join(str(check.sqltext) for check in _checks(Recordatorio))
+    assert "ventana IN ('48h','24h')" in sqltext
+    assert "pendiente" in sqltext and "cancelado" in sqltext
+    indexes = {
+        index.name: index
+        for table in Base.metadata.tables.values()
+        for index in table.indexes
+    }
+    assert indexes["uq_recordatorios_turno_ventana"].unique is True
+    assert [
+        column.name
+        for column in indexes["uq_recordatorios_turno_ventana"].columns
+    ] == ["turno_id", "ventana"]
+
+
+def test_mensaje_whatsapp_valida_estados_y_proveedor_unico() -> None:
+    sqltext = " ".join(
+        str(check.sqltext) for check in _checks(MensajeWhatsApp)
+    )
+    assert "recordatorio" in sqltext and "oferta_hueco" in sqltext
+    assert "pendiente" in sqltext and "fallido" in sqltext
+    assert "ninguna" in sqltext and "derivado" in sqltext
+    indexes = {
+        index.name: index
+        for table in Base.metadata.tables.values()
+        for index in table.indexes
+    }
+    proveedor = indexes["uq_mensajes_whatsapp_proveedor"]
+    assert proveedor.unique is True
+    where = proveedor.dialect_options["postgresql"].get("where")
+    assert str(where) == "proveedor_mensaje_id IS NOT NULL"

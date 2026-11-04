@@ -12,7 +12,7 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 
-from app.domain.turnos import calcular_fin, validar_ventana
+from app.domain.turnos import ESTADOS_TERMINALES, calcular_fin, validar_ventana
 from app.infrastructure.uow import UnitOfWork
 from app.models.agenda import Profesional, Sillon, Turno
 from app.models.comercial import Prestacion
@@ -207,6 +207,81 @@ def estado_de_sena(prestacion: Prestacion | None) -> str:
     )
 
 
+@dataclass(frozen=True)
+class ComandoReprogramar:
+    inicio: datetime | None = None
+    profesional_id: uuid.UUID | None = None
+    sillon_id: uuid.UUID | None = None
+    prestacion_id: uuid.UUID | None = None
+    cambiar_prestacion: bool = False
+
+
+async def reprogramar_turno(
+    uow: UnitOfWork,
+    consultorio_id: uuid.UUID,
+    turno: Turno,
+    comando: ComandoReprogramar,
+) -> Turno:
+    """Apply the same agenda/block/overlap rules to a moved appointment."""
+    if turno.estado in ESTADOS_TERMINALES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Un turno cerrado no se puede reprogramar",
+        )
+    nuevo_inicio = comando.inicio or turno.inicio
+    nuevo_profesional_id = comando.profesional_id or turno.profesional_id
+    nuevo_sillon_id = comando.sillon_id or turno.sillon_id
+    nueva_prestacion_id = (
+        comando.prestacion_id
+        if comando.cambiar_prestacion
+        else turno.prestacion_id
+    )
+
+    _paciente, profesional, _sillon, prestacion = await recursos(
+        uow,
+        consultorio_id,
+        paciente_id=turno.paciente_id,
+        profesional_id=nuevo_profesional_id,
+        sillon_id=nuevo_sillon_id,
+        prestacion_id=nueva_prestacion_id,
+    )
+    nuevo_fin = calcular_fin(
+        nuevo_inicio, duracion_de(prestacion, profesional)
+    )
+    validar_agenda(profesional, nuevo_inicio, nuevo_fin)
+    await validar_bloqueos(
+        uow,
+        profesional_id=nuevo_profesional_id,
+        sillon_id=nuevo_sillon_id,
+        inicio=nuevo_inicio,
+        fin=nuevo_fin,
+    )
+    await validar_solapamiento(
+        uow,
+        consultorio_id=consultorio_id,
+        profesional_id=nuevo_profesional_id,
+        sillon_id=nuevo_sillon_id,
+        inicio=nuevo_inicio,
+        fin=nuevo_fin,
+        es_sobreturno=turno.es_sobreturno,
+        exclude_id=turno.id,
+    )
+
+    turno.inicio = nuevo_inicio
+    turno.fin = nuevo_fin
+    turno.profesional_id = nuevo_profesional_id
+    turno.sillon_id = nuevo_sillon_id
+    turno.prestacion_id = nueva_prestacion_id
+    try:
+        await uow.session.flush()
+    except IntegrityError as error:
+        conflicto = traducir_exclusion(error)
+        if conflicto is not None:
+            raise conflicto from error
+        raise
+    return turno
+
+
 async def crear_turno(
     uow: UnitOfWork,
     consultorio_id: uuid.UUID,
@@ -261,4 +336,8 @@ async def crear_turno(
         if conflicto is not None:
             raise conflicto from error
         raise
+
+    from app.application.recordatorios import programar_recordatorios
+
+    await programar_recordatorios(uow, turno)
     return turno
