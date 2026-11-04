@@ -244,12 +244,12 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux/Integ.)    │ A
 > C-07, C-08 y C-09 corren en paralelo tras C-06 (GATE 5). C-10 espera a C-09.
 
 ### [C-07] `reserva-online-publica`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado 2026-11-03 (archivado en `openspec/changes/archive/`) — 412 tests backend + 11 frontend
 - **Scope**: Reserva pública 24/7 con enlace + token de un solo uso (US-001, Flujo 1)
   - `GET /reservar/{consultorio}/disponibilidad` (real por profesional/prestación) + `POST` público que crea turno `reservado` con validación RN-TU-01; sin JWT de sesión — token opaco de un solo uso con vencimiento (RN-NO-03)
-  - Si la prestación tiene `requiere_seña=true`, la reserva deriva al pago (crea seña pendiente; el cobro/webhook se implementa en C-13) y muestra la política de pérdida (RN-TU-04) antes de confirmar
-  - Confirmación encolada a `whatsapp:send` si el worker existe; si no, log + reintento (no bloquea la reserva)
-  - Page pública React: profesionales/prestaciones/disponibilidad/formulario + enlace de gestión del turno
+  - Si la prestación tiene `requiere_seña=true`, la reserva deriva al pago (`sena_estado=pendiente`; el cobro/webhook se implementa en C-13) y muestra la política de pérdida (RN-TU-04) antes de confirmar
+  - Confirmación encolada a `whatsapp:send` best-effort; si Redis falla, log + `pendiente_reintento` (no bloquea la reserva)
+  - Page pública React `/reservar` + `/reservar/gestion/:token` con confirmar/cancelar
   - Tests: doble reserva concurrente pública 409, reuse de token 410, token vencido 410, teléfono inválido sin turno creado
 - **Dependencias**: C-06
 - **Governance**: ALTO

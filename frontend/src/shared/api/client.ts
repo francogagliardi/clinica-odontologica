@@ -42,6 +42,22 @@ export function getApiBaseUrl(): string {
 
 export async function fetchJson(path: string): Promise<unknown> {
   const response = await fetch(`${getApiBaseUrl()}${path}`);
+  return parseResponse(response);
+}
+
+export async function postJson(
+  path: string,
+  body: unknown,
+): Promise<unknown> {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return parseResponse(response);
+}
+
+async function parseResponse(response: Response): Promise<unknown> {
   const text = await response.text();
   let body: unknown = text;
   if (text !== "") {

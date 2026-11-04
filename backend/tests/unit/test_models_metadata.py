@@ -326,3 +326,12 @@ def test_consultorio_configura_el_plazo_de_cancelacion() -> None:
     columna = Consultorio.__table__.c.plazo_cancelacion_horas
     assert columna.nullable is False
     assert str(columna.server_default.arg) == "24"
+
+
+def test_turno_guarda_el_estado_de_la_sena() -> None:
+    sqltext = " ".join(str(check.sqltext) for check in _checks(Turno))
+    assert "sena_estado IN" in sqltext
+    columna = Turno.__table__.c.sena_estado
+    assert columna.nullable is False
+    assert columna.default.arg == "no_requiere"
+    assert str(columna.server_default.arg) == "'no_requiere'"

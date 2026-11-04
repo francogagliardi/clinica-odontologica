@@ -84,3 +84,13 @@ def test_full_env_boots_with_typed_values(monkeypatch) -> None:
     assert settings.jwt_algorithm == "HS256"
     assert settings.jwt_expire_minutes == 60
     assert isinstance(settings.jwt_expire_minutes, int)
+
+
+def test_gestion_token_ttl_default_and_override(monkeypatch) -> None:
+    for key, value in _full_env().items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.delenv("GESTION_TOKEN_TTL_MINUTES", raising=False)
+    assert load_settings().gestion_token_ttl_minutes == 10080
+
+    monkeypatch.setenv("GESTION_TOKEN_TTL_MINUTES", "60")
+    assert load_settings().gestion_token_ttl_minutes == 60

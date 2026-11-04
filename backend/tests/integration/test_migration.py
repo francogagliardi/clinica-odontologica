@@ -88,7 +88,7 @@ def test_upgrade_crea_tablas_columnas_e_indices(engine) -> None:
 
     async def scenario() -> None:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0006_turnos_anti_solapamiento"
+        assert snapshot["version"] == "0007_reserva_publica"
         assert snapshot["tables"] == set(Base.metadata.tables) | {
             "alembic_version"
         }
@@ -254,7 +254,7 @@ def test_c05_downgrade_y_upgrade_restaura_solo_sus_tablas(
         return await _snapshot(engine)
 
     restored = run(after_upgrade())
-    assert restored["version"] == "0006_turnos_anti_solapamiento"
+    assert restored["version"] == "0007_reserva_publica"
     assert {"pacientes", "obras_sociales", "turnos"} <= restored["tables"]
 
 
@@ -281,9 +281,37 @@ def test_c06_downgrade_y_upgrade_restaura_turnos(
         excludes = set(
             await _exclude_constraints(engine)
         )
-        assert snapshot["version"] == "0006_turnos_anti_solapamiento"
+        assert snapshot["version"] == "0007_reserva_publica"
         assert "turnos" in snapshot["tables"]
         assert {"ex_turnos_profesional", "ex_turnos_sillon"} <= excludes
+        return snapshot
+
+    run(after_upgrade())
+
+
+def test_c07_downgrade_y_upgrade_restaura_la_sena(
+    migrated_database: str, engine
+) -> None:
+    """Edge: 0007 only adds the deposit state; 0006 ⇄ 0007 is reversible."""
+
+    _alembic("downgrade", "0006_turnos_anti_solapamiento", database_url=migrated_database)
+
+    async def after_downgrade() -> dict[str, object]:
+        snapshot = await _snapshot(engine)
+        assert snapshot["version"] == "0006_turnos_anti_solapamiento"
+        columns = snapshot["columns"]
+        assert ("turnos", "sena_estado") not in columns
+        assert "turnos" in snapshot["tables"]
+        return snapshot
+
+    run(after_downgrade())
+
+    _alembic("upgrade", "head", database_url=migrated_database)
+
+    async def after_upgrade() -> dict[str, object]:
+        snapshot = await _snapshot(engine)
+        assert snapshot["version"] == "0007_reserva_publica"
+        assert ("turnos", "sena_estado") in snapshot["columns"]
         return snapshot
 
     run(after_upgrade())

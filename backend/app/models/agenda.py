@@ -202,6 +202,11 @@ class Turno(Base, AuditMixin):
             "OR color_sobreturno ~ '^#[0-9A-Fa-f]{6}$'",
             name="color_sobreturno_formato",
         ),
+        CheckConstraint(
+            "sena_estado IN "
+            "('no_requiere','pendiente','pagada','perdida')",
+            name="sena_estado_valido",
+        ),
         Index("ix_turnos_profesional_inicio", "profesional_id", "inicio"),
         Index("ix_turnos_sillon_inicio", "sillon_id", "inicio"),
         Index("ix_turnos_estado", "estado"),
@@ -267,6 +272,12 @@ class Turno(Base, AuditMixin):
     )
     token_publico: Mapped[str | None] = mapped_column(
         String(64), nullable=True
+    )
+    sena_estado: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="no_requiere",
+        server_default=text("'no_requiere'"),
     )
 
 

@@ -11,6 +11,7 @@ from functools import lru_cache
 from typing import Annotated
 
 import jwt
+import redis.asyncio as redis_async
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -61,6 +62,11 @@ async def get_uow() -> AsyncIterator[UnitOfWork]:
     uow = UnitOfWork(factory)
     async with uow:
         yield uow
+
+
+def get_redis() -> redis_async.Redis | None:
+    """Inject the shared Redis client (overridable in tests)."""
+    return resources.redis_client
 
 
 security_bearer = HTTPBearer(auto_error=False)

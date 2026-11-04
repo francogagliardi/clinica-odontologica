@@ -41,7 +41,7 @@ def test_single_head_revision() -> None:
     config = Config(str(_BACKEND_DIR / "alembic.ini"))
     config.set_main_option("script_location", str(_BACKEND_DIR / "alembic"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["0006_turnos_anti_solapamiento"]
+    assert script.get_heads() == ["0007_reserva_publica"]
 
 
 def test_c02_revision_chains_from_baseline() -> None:
@@ -96,3 +96,14 @@ def test_c06_revision_chains_from_c05() -> None:
     assert "ex_turnos_profesional" in source
     assert "ex_turnos_sillon" in source
     assert "plazo_cancelacion_horas" in source
+
+
+def test_c07_revision_chains_from_c06() -> None:
+    """0007 adds the deposit state used by the public booking flow."""
+    source = (
+        _BACKEND_DIR / "alembic" / "versions" / "0007_reserva_publica.py"
+    ).read_text(encoding="utf-8")
+    assert (
+        'down_revision: str | None = "0006_turnos_anti_solapamiento"' in source
+    )
+    assert "sena_estado" in source

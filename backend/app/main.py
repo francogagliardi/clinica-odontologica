@@ -14,6 +14,7 @@ from app.api import (
     pacientes,
     prestaciones,
     profesionales,
+    publico,
     ready,
     sillones,
     turnos,
@@ -55,3 +56,4 @@ app.include_router(bloqueos.router)
 app.include_router(pacientes.router)
 app.include_router(obras_sociales.router)
 app.include_router(turnos.router)
+app.include_router(publico.router)

@@ -50,6 +50,21 @@ API: `http://127.0.0.1:8000/docs` (usuario `admin@clinica.test`; contraseña en 
 | 20 | RBAC asistente/auditor | `GET /turnos` 200; crear/reprogramar/cambiar estado 403 | solo lectura |
 | 21 | Sin token | Cualquier endpoint de turnos | 401 |
 
+## C-07 — Reserva pública (pendiente de cierre)
+
+| # | Qué probar | Cómo | Esperado |
+|---|---|---|---|
+| 1 | Catálogo público | Abrir `/reservar` en el navegador | Profesionales y prestaciones visibles, sin login |
+| 2 | Disponibilidad | Elegir profesional, prestación y fecha | Slots reales sin turnos activos ni bloqueos |
+| 3 | Reserva | Completar nombre, apellido, DNI y teléfono, elegir slot | 201; muestra enlace de gestión y estado de seña |
+| 4 | Seña | Reservar ENDO | Seña pendiente con monto y política visibles |
+| 5 | DNI repetido con otro teléfono | Reservar con un DNI existente y teléfono distinto | 409 visible, sin turno nuevo |
+| 6 | Solape | Dos pestañas al mismo slot | Una reserva OK, la otra 409 |
+| 7 | Gestión | Abrir el enlace del turno | Resumen con confirmar/cancelar |
+| 8 | Token usado | Cancelar y recargar el enlace | 410 |
+| 9 | Cancelación fuera de plazo | Forzar un turno cercano y cancelar | Aviso de pérdida de seña |
+| 10 | WhatsApp | Ver logs/Redis `whatsapp:send` | Encolada o `pendiente_reintento` si Redis falla |
+
 ## Prueba final de la página
 
 Cuando estén todos los changes:

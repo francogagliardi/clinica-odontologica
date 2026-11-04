@@ -100,3 +100,41 @@ async def setup_turnos(
 
 def iso(value: datetime) -> str:
     return value.isoformat()
+
+
+async def insertar_turno_db(
+    session_factory: async_sessionmaker[AsyncSession],
+    *,
+    consultorio_id: uuid.UUID,
+    paciente_id: uuid.UUID,
+    profesional_id: uuid.UUID,
+    sillon_id: uuid.UUID,
+    inicio: datetime,
+    fin: datetime,
+    estado: str = "reservado",
+) -> uuid.UUID:
+    """Direct insert used to set up conflicts without going through the API."""
+    from sqlalchemy import text
+
+    turno_id = uuid.uuid4()
+    async with session_factory() as session, session.begin():
+        await session.execute(
+            text(
+                "INSERT INTO turnos "
+                "(id, consultorio_id, paciente_id, profesional_id, "
+                "sillon_id, inicio, fin, estado) "
+                "VALUES (:id, :consultorio_id, :paciente_id, "
+                ":profesional_id, :sillon_id, :inicio, :fin, :estado)"
+            ),
+            {
+                "id": turno_id,
+                "consultorio_id": consultorio_id,
+                "paciente_id": paciente_id,
+                "profesional_id": profesional_id,
+                "sillon_id": sillon_id,
+                "inicio": inicio,
+                "fin": fin,
+                "estado": estado,
+            },
+        )
+    return turno_id
