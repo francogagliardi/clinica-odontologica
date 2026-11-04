@@ -40,18 +40,35 @@ export function getApiBaseUrl(): string {
   return base.replace(/\/+$/, "");
 }
 
-export async function fetchJson(path: string): Promise<unknown> {
-  const response = await fetch(`${getApiBaseUrl()}${path}`);
+export async function fetchJson(
+  path: string,
+  headers: Record<string, string> = {},
+): Promise<unknown> {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, { headers });
   return parseResponse(response);
 }
 
 export async function postJson(
   path: string,
   body: unknown,
+  headers: Record<string, string> = {},
 ): Promise<unknown> {
   const response = await fetch(`${getApiBaseUrl()}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(body),
+  });
+  return parseResponse(response);
+}
+
+export async function patchJson(
+  path: string,
+  body: unknown,
+  headers: Record<string, string> = {},
+): Promise<unknown> {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...headers },
     body: JSON.stringify(body),
   });
   return parseResponse(response);

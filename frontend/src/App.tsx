@@ -1,4 +1,5 @@
 import { HomePage } from "./pages/HomePage";
+import { AgendaPage } from "./pages/AgendaPage";
 import { GestionTurnoPage } from "./pages/GestionTurnoPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { ReservaPage } from "./pages/ReservaPage";
@@ -10,6 +11,9 @@ export function App(): React.JSX.Element {
   const pathname = window.location.pathname;
   if (pathname.startsWith(GESTION_PREFIX)) {
     return <GestionTurnoPage token={pathname.slice(GESTION_PREFIX.length)} />;
+  }
+  if (pathname === "/agenda") {
+    return <AgendaPage />;
   }
   if (pathname === "/reservar") {
     return <ReservaPage />;

@@ -262,7 +262,7 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux/Integ.)    │ A
 ---
 
 ### [C-08] `agenda-backoffice-ui`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado 2026-11-03 (archivado en `openspec/changes/archive/`) — 28 tests frontend en verde
 - **Scope**: Agenda visual backoffice día/semana/mes (US-002, cara visible de C-06)
   - Vistas día/semana/mes por profesional y sillón con código de color por estado; bloqueos y sobreturnos diferenciados; drag & drop que reprograma validando RN-TU-01 vía API (error visible si colisiona)
   - `features/agenda` + `pages/` backoffice; cliente API con Bearer JWT

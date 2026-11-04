@@ -65,6 +65,22 @@ API: `http://127.0.0.1:8000/docs` (usuario `admin@clinica.test`; contraseña en 
 | 9 | Cancelación fuera de plazo | Forzar un turno cercano y cancelar | Aviso de pérdida de seña |
 | 10 | WhatsApp | Ver logs/Redis `whatsapp:send` | Encolada o `pendiente_reintento` si Redis falla |
 
+## C-08 — Agenda backoffice
+
+| # | Qué probar | Cómo | Esperado |
+|---|---|---|---|
+| 1 | Login | Abrir `/agenda` con admin | Pide login; al ingresar muestra la agenda |
+| 2 | Token en memoria | Refrescar `/agenda` | Vuelve a pedir login (no hay token persistido) |
+| 3 | Vistas | Cambiar Día/Semana/Mes | Grillas distintas y datos del rango correcto |
+| 4 | Filtros | Elegir profesional y sillón | Solo turnos de ese recurso |
+| 5 | Colores | Ver turnos en estados distintos | Color/etiqueta por estado |
+| 6 | Bloqueo | Crear bloqueo y ver la agenda | Franja con el motivo |
+| 7 | Sobreturno | Crear sobreturno desde Swagger | Badge y color diferenciados |
+| 8 | Drag válido | Arrastrar un turno a un horario libre | PATCH 200 y la grilla se actualiza |
+| 9 | Drag inválido | Arrastrar sobre un turno/bloqueo | 409 visible y el turno no se mueve |
+| 10 | Rol odontólogo | Login de odontólogo | Solo puede arrastrar sus turnos |
+| 11 | Asistente/auditor | Login de esos roles | Agenda visible sin acciones |
+
 ## Prueba final de la página
 
 Cuando estén todos los changes:
