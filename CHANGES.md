@@ -321,12 +321,12 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux/Integ.)    │ A
 > C-11 corre en paralelo con C-06 (GATE 4). C-12 espera a C-11.
 
 ### [C-11] `historia-clinica-odontograma`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado 2026-11-04 (archivado en `openspec/changes/archive/`) — 720 tests backend + 28 frontend
 - **Scope**: Ficha clínica + odontograma FDI + consentimientos (US-020, Flujo 3 parcial)
-  - Modelos: `HistoriaClinica, Evolucion` (inmutable tras firma; corrección solo por rectificatoria, RN-CL-04), `Odontograma + HallazgoDental` (FDI 11–48/51–85 por pieza/cara + CIE-10 donde aplique, RN-CL-01), `Adjunto` (fotos/documentos), `Consentimiento` (firma, texto versionado, RN-CL-03)
-  - Endpoints `/historia-clinica, /odontograma` (evoluciones, hallazgos por pieza/cara, adjuntos, consentimientos); toda escritura clínica → `RegistroAuditoria`
-  - Migración 006: historia/evolución/odontograma/hallazgo/adjunto/consentimiento
-  - Tests: evolución firmada rechaza edición 403, rectificatoria enlaza original, pieza FDI inválida 422, adjunto sin historia 422
+  - Modelos: `HistoriaClinica, Evolucion` (borrador→firma; inmutable tras firma con trigger `P0001`; corrección solo por rectificatoria enlazada, RN-CL-04), `Odontograma + HallazgoDental` (snapshots FDI 11–48/51–85 por pieza/cara + CIE-10, RN-CL-01), `Adjunto` (BYTEA, multipart, 5 MB, magic bytes), `Consentimiento` (hash de texto versionado + firma_ref, RN-CL-03)
+  - Endpoints `/historia-clinica, /evoluciones, /odontograma, /adjuntos, /consentimientos`; toda escritura clínica → `RegistroAuditoria` con usuario/IP/dispositivo
+  - Migración `0010_historia_clinica`: seis tablas + triggers append-only/inmutabilidad
+  - Tests: evolución firmada rechaza edición 403/P0001, rectificatoria enlaza original, pieza FDI inválida 422, adjunto sin historia 422, versionado de odontograma y RBAC por rol
 - **Dependencias**: C-04, C-05
 - **Governance**: CRITICO
 - **Leer antes**:

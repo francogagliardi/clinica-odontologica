@@ -37,11 +37,11 @@ def test_baseline_revision_carries_zero_domain_ddl() -> None:
 
 
 def test_single_head_revision() -> None:
-    """The revision graph has exactly one head (C-10 extends the chain)."""
+    """The revision graph has exactly one head (C-11 extends the chain)."""
     config = Config(str(_BACKEND_DIR / "alembic.ini"))
     config.set_main_option("script_location", str(_BACKEND_DIR / "alembic"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["0009_lista_espera"]
+    assert script.get_heads() == ["0010_historia_clinica"]
 
 
 def test_c02_revision_chains_from_baseline() -> None:
@@ -134,3 +134,18 @@ def test_c10_revision_chains_from_c08() -> None:
     assert "ex_lista_espera_sillon" in source
     assert "lista_espera_id" in source
     assert "btree_gist" in source
+
+
+def test_c11_revision_chains_from_c10() -> None:
+    """0010 adds the clinical record without branching the revision graph."""
+    source = (
+        _BACKEND_DIR / "alembic" / "versions" / "0010_historia_clinica.py"
+    ).read_text(encoding="utf-8")
+    assert 'down_revision: str | None = "0009_lista_espera"' in source
+    assert "historias_clinicas" in source
+    assert "evoluciones" in source
+    assert "odontogramas" in source
+    assert "hallazgos_dentales" in source
+    assert "adjuntos" in source
+    assert "consentimientos" in source
+    assert "P0001" in source

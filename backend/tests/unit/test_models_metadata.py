@@ -6,12 +6,18 @@ from sqlalchemy.dialects.postgresql import ExcludeConstraint
 from sqlalchemy.schema import AddConstraint
 
 from app.models import (
+    Adjunto,
     Base,
     Bloqueo,
+    Consentimiento,
     Consultorio,
     EntradaListaEspera,
+    Evolucion,
+    HallazgoDental,
+    HistoriaClinica,
     MensajeWhatsApp,
     ObraSocial,
+    Odontograma,
     Paciente,
     Prestacion,
     Profesional,
@@ -44,6 +50,12 @@ EXPECTED_TABLES = {
     "recordatorios",
     "mensajes_whatsapp",
     "entradas_lista_espera",
+    "historias_clinicas",
+    "evoluciones",
+    "odontogramas",
+    "hallazgos_dentales",
+    "adjuntos",
+    "consentimientos",
 }
 
 
@@ -77,6 +89,10 @@ def test_baja_logica_se_declara_en_entidades_de_negocio() -> None:
         ObraSocial,
         Turno,
         EntradaListaEspera,
+        HistoriaClinica,
+        Evolucion,
+        Adjunto,
+        Consentimiento,
     ):
         columns = set(model.__table__.c.keys())
         assert {"is_active", "created_at", "updated_at", "deleted_at"} <= columns
@@ -103,6 +119,10 @@ def test_check_de_coherencia_de_baja_logica_declarado() -> None:
         ObraSocial,
         Turno,
         EntradaListaEspera,
+        HistoriaClinica,
+        Evolucion,
+        Adjunto,
+        Consentimiento,
     ):
         checks = [
             constraint
@@ -523,3 +543,157 @@ def test_mensaje_whatsapp_admite_oferta_sin_turno() -> None:
     )
     assert "aceptado" in sqltext and "rechazado" in sqltext
     assert "turno_id IS NOT NULL OR lista_espera_id IS NOT NULL" in sqltext
+
+# --- C-11 clinical record metadata -----------------------------------------
+
+
+def _indexes() -> dict[str, object]:
+    return {
+        index.name: index
+        for table in Base.metadata.tables.values()
+        for index in table.indexes
+    }
+
+
+def test_historia_clinica_unica_por_paciente_activo() -> None:
+    index = _indexes()["uq_historias_clinicas_paciente_activa"]
+    assert index.unique is True
+    assert [column.name for column in index.columns] == ["paciente_id"]
+    where = index.dialect_options["postgresql"].get("where")
+    assert str(where) == "deleted_at IS NULL"
+
+
+def test_historia_clinica_referencia_consultorio_paciente_y_autor() -> None:
+    foreign_keys = {
+        constraint.columns[0].name: constraint
+        for constraint in HistoriaClinica.__table__.foreign_key_constraints
+    }
+    assert foreign_keys["consultorio_id"].referred_table.name == "consultorios"
+    assert foreign_keys["paciente_id"].referred_table.name == "pacientes"
+    assert foreign_keys["abierta_por"].referred_table.name == "usuarios"
+    assert not HistoriaClinica.__table__.c.fecha_apertura.nullable
+
+
+def test_evolucion_inmutable_declara_firma_y_rectificacion() -> None:
+    columns = set(Evolucion.__table__.c.keys())
+    assert {
+        "historia_id",
+        "profesional_id",
+        "creado_por",
+        "fecha",
+        "texto",
+        "firmada",
+        "firmada_por",
+        "fecha_firma",
+        "rectifica_a",
+    } <= columns
+    assert columns >= {"is_active", "created_at", "updated_at", "deleted_at"}
+    assert Evolucion.__table__.c.firmada.default.arg is False
+
+    sqltext = " ".join(str(check.sqltext) for check in _checks(Evolucion))
+    assert "firmada" in sqltext
+    assert "firmada_por IS NOT NULL" in sqltext
+    assert "fecha_firma IS NOT NULL" in sqltext
+
+
+def test_evolucion_rectificatoria_unica_activa() -> None:
+    index = _indexes()["uq_evoluciones_rectificacion_activa"]
+    assert index.unique is True
+    assert [column.name for column in index.columns] == ["rectifica_a"]
+    where = index.dialect_options["postgresql"].get("where")
+    assert str(where) == "rectifica_a IS NOT NULL AND deleted_at IS NULL"
+
+
+def test_odontograma_versionado_sin_lowa_logica() -> None:
+    columns = set(Odontograma.__table__.c.keys())
+    assert {"id", "historia_id", "version", "created_at"} <= columns
+    assert "deleted_at" not in columns
+    assert "updated_at" not in columns
+
+    unique = {
+        constraint.name: constraint
+        for constraint in Odontograma.__table__.constraints
+        if constraint.__class__.__name__ == "UniqueConstraint"
+    }
+    assert "uq_odontogramas_historia_version" in unique
+    assert [
+        column.name for column in unique["uq_odontogramas_historia_version"].columns
+    ] == ["historia_id", "version"]
+
+    sqltext = " ".join(str(check.sqltext) for check in _checks(Odontograma))
+    assert "version > 0" in sqltext
+
+
+def test_hallazgo_dental_valida_fdi_cara_estado_y_cie10() -> None:
+    columns = set(HallazgoDental.__table__.c.keys())
+    assert {
+        "odontograma_id",
+        "pieza",
+        "cara",
+        "estado",
+        "diagnostico",
+        "cie10",
+        "fecha",
+        "created_at",
+    } <= columns
+    assert "deleted_at" not in columns
+
+    sqltext = " ".join(str(check.sqltext) for check in _checks(HallazgoDental))
+    assert "pieza / 10 BETWEEN 1 AND 4" in sqltext
+    assert "pieza / 10 BETWEEN 5 AND 8" in sqltext
+    assert "mesial" in sqltext and "completa" in sqltext
+    assert "caries" in sqltext and "protesis" in sqltext
+    assert "^[A-Z][0-9]{2}" in sqltext
+
+    unique = {
+        constraint.name: constraint
+        for constraint in HallazgoDental.__table__.constraints
+        if constraint.__class__.__name__ == "UniqueConstraint"
+    }
+    assert "uq_hallazgos_dentales_odontograma_pieza_cara" in unique
+    assert [
+        column.name
+        for column in unique[
+            "uq_hallazgos_dentales_odontograma_pieza_cara"
+        ].columns
+    ] == ["odontograma_id", "pieza", "cara"]
+
+
+def test_adjunto_valida_mime_tamano_y_nombre() -> None:
+    columns = Adjunto.__table__.c
+    assert {"historia_id", "nombre", "mime", "tamano", "contenido", "subido_por"} <= set(
+        columns.keys()
+    )
+    assert not columns.contenido.nullable
+    assert not columns.tamano.nullable
+
+    sqltext = " ".join(str(check.sqltext) for check in _checks(Adjunto))
+    assert "image/jpeg" in sqltext and "application/pdf" in sqltext
+    assert "tamano > 0" in sqltext
+    assert "tamano <= 5242880" in sqltext
+    assert "octet_length(contenido)" in sqltext
+    assert ".." in sqltext
+
+
+def test_consentimiento_declara_formato_de_hashes() -> None:
+    columns = set(Consentimiento.__table__.c.keys())
+    assert {
+        "consultorio_id",
+        "paciente_id",
+        "tipo",
+        "texto_version",
+        "texto_hash",
+        "firma_ref",
+        "fecha",
+        "registrado_por",
+    } <= columns
+
+    sqltext = " ".join(str(check.sqltext) for check in _checks(Consentimiento))
+    assert "procedimiento_invasivo" in sqltext
+    assert "[0-9a-f]{64}" in sqltext
+    assert "sha256:" in sqltext
+
+
+def test_tablas_append_only_no_admiten_baja_fisica_por_orm() -> None:
+    for model in (Odontograma, HallazgoDental):
+        assert "is_active" not in model.__table__.c

@@ -16,6 +16,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.api.deps import (
+    client_ip,
+    dispositivo,
     get_current_user,
     get_login_limiter,
     get_settings,
@@ -37,16 +39,6 @@ from app.schemas.auth import LoginRequest, TokenResponse, UsuarioAuthResponse
 router = APIRouter(prefix="/usuarios", tags=["auth"])
 
 _MAX_ENTIDAD_ID = 64
-_MAX_DISPOSITIVO = 120
-
-
-def _client_ip(request: Request) -> str:
-    return request.client.host if request.client else "unknown"
-
-
-def _dispositivo(request: Request) -> str | None:
-    user_agent = request.headers.get("user-agent")
-    return user_agent[:_MAX_DISPOSITIVO] if user_agent else None
 
 
 def _active_roles(user: Usuario) -> list[str]:
@@ -102,10 +94,10 @@ async def login(
     limiter: Annotated[LoginRateLimiter, Depends(get_login_limiter)],
 ) -> TokenResponse:
     """Validate credentials and return a short-lived JWT Bearer token."""
-    client_ip = _client_ip(request)
-    dispositivo = _dispositivo(request)
+    ip_cliente = client_ip(request)
+    agente = dispositivo(request)
     email = normalize_email(payload.email)
-    throttle_key = f"{client_ip}:{email}"
+    throttle_key = f"{ip_cliente}:{email}"
 
     if limiter.is_blocked(throttle_key):
         raise HTTPException(
@@ -131,8 +123,8 @@ async def login(
             accion="login_fallido",
             usuario_id=user.id if user is not None else None,
             entidad_id=str(user.id) if user is not None else email,
-            ip=client_ip,
-            dispositivo=dispositivo,
+            ip=ip_cliente,
+            dispositivo=agente,
         )
         # Persist the audit before the 401, otherwise the UoW rollback drops it.
         await uow.commit()
@@ -148,8 +140,8 @@ async def login(
         accion="login_exitoso",
         usuario_id=user.id,
         entidad_id=str(user.id),
-        ip=client_ip,
-        dispositivo=dispositivo,
+        ip=ip_cliente,
+        dispositivo=agente,
     )
 
     token = create_access_token(

@@ -14,12 +14,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.turnos import ESTADOS_ACTIVOS
 from app.models import (
+    Adjunto,
     Base,
     Bloqueo,
+    Consentimiento,
     Consultorio,
     EntradaListaEspera,
+    Evolucion,
+    HallazgoDental,
+    HistoriaClinica,
     MensajeWhatsApp,
     ObraSocial,
+    Odontograma,
     Paciente,
     Prestacion,
     Profesional,
@@ -480,6 +486,29 @@ class TurnoRepository(BaseRepository[Turno]):
         result = await self._session.scalars(statement)
         return list(result)
 
+    async def existe_para_paciente(
+        self,
+        paciente_id: uuid.UUID,
+        *,
+        estados: tuple[str, ...],
+        profesional_id: uuid.UUID | None = None,
+    ) -> bool:
+        """Clinical access helper: is there a live turn linking the patient?
+
+        `profesional_id` narrows the check to "the patient is mine"; omitting it
+        answers "the patient is being attended now" for the assistant (design D8).
+        """
+        statement = select(Turno.id).where(
+            Turno.paciente_id == paciente_id,
+            Turno.deleted_at.is_(None),
+            Turno.estado.in_(estados),
+        )
+        if profesional_id is not None:
+            statement = statement.where(
+                Turno.profesional_id == profesional_id
+            )
+        return await self._session.scalar(statement.limit(1)) is not None
+
 
 class ListaEsperaRepository(BaseRepository[EntradaListaEspera]):
     """FIFO queue and live retentions of a freed slot (C-10, D3/D4/D7)."""
@@ -707,4 +736,153 @@ class MensajeWhatsAppRepository(BaseRepository[MensajeWhatsApp]):
             )
         statement = statement.order_by(MensajeWhatsApp.created_at.desc())
         result = await self._session.scalars(statement)
+        return list(result)
+
+class HistoriaClinicaRepository(BaseRepository[HistoriaClinica]):
+    """One active history per patient; the partial unique index backs it."""
+
+    model = HistoriaClinica
+
+    async def get_activa_por_paciente(
+        self, paciente_id: uuid.UUID
+    ) -> HistoriaClinica | None:
+        result = await self._session.scalars(
+            select(HistoriaClinica).where(
+                HistoriaClinica.paciente_id == paciente_id,
+                HistoriaClinica.deleted_at.is_(None),
+            )
+        )
+        return result.first()
+
+    async def get_for_update(
+        self, historia_id: uuid.UUID
+    ) -> HistoriaClinica | None:
+        """Lock the history for the odontogram snapshot critical section."""
+        result = await self._session.scalars(
+            select(HistoriaClinica)
+            .where(HistoriaClinica.id == historia_id)
+            .with_for_update()
+        )
+        return result.first()
+
+
+class EvolucionRepository(BaseRepository[Evolucion]):
+    """Signed evolutions are read-only; drafts can be corrected or discarded."""
+
+    model = Evolucion
+
+    async def list_by_historia(
+        self, historia_id: uuid.UUID
+    ) -> list[Evolucion]:
+        result = await self._session.scalars(
+            select(Evolucion)
+            .where(
+                Evolucion.historia_id == historia_id,
+                Evolucion.deleted_at.is_(None),
+            )
+            .order_by(Evolucion.fecha.desc(), Evolucion.created_at.desc())
+        )
+        return list(result)
+
+    async def get_rectificatoria_activa(
+        self, rectifica_a: uuid.UUID
+    ) -> Evolucion | None:
+        result = await self._session.scalars(
+            select(Evolucion).where(
+                Evolucion.rectifica_a == rectifica_a,
+                Evolucion.deleted_at.is_(None),
+            )
+        )
+        return result.first()
+
+
+class OdontogramaRepository(BaseRepository[Odontograma]):
+    """Immutable snapshots: reads only plus the next-version calculation."""
+
+    model = Odontograma
+
+    async def proxima_version(self, historia_id: uuid.UUID) -> int:
+        """`COALESCE(MAX(version), 0) + 1`; the unique index is the safety net."""
+        actual = await self._session.scalar(
+            select(func.coalesce(func.max(Odontograma.version), 0)).where(
+                Odontograma.historia_id == historia_id
+            )
+        )
+        return int(actual or 0) + 1
+
+    async def get_vigente(
+        self, historia_id: uuid.UUID
+    ) -> Odontograma | None:
+        result = await self._session.scalars(
+            select(Odontograma)
+            .where(Odontograma.historia_id == historia_id)
+            .order_by(Odontograma.version.desc())
+            .limit(1)
+        )
+        return result.first()
+
+    async def get_por_version(
+        self, historia_id: uuid.UUID, version: int
+    ) -> Odontograma | None:
+        result = await self._session.scalars(
+            select(Odontograma).where(
+                Odontograma.historia_id == historia_id,
+                Odontograma.version == version,
+            )
+        )
+        return result.first()
+
+
+class HallazgoDentalRepository(BaseRepository[HallazgoDental]):
+    """Findings belong to one immutable snapshot; reads and inserts only."""
+
+    model = HallazgoDental
+
+    async def list_by_odontograma(
+        self, odontograma_id: uuid.UUID
+    ) -> list[HallazgoDental]:
+        result = await self._session.scalars(
+            select(HallazgoDental)
+            .where(HallazgoDental.odontograma_id == odontograma_id)
+            .order_by(HallazgoDental.pieza, HallazgoDental.cara)
+        )
+        return list(result)
+
+
+class AdjuntoRepository(BaseRepository[Adjunto]):
+    """Clinical attachments: metadata and bytes always tied to a history."""
+
+    model = Adjunto
+
+    async def list_by_historia(self, historia_id: uuid.UUID) -> list[Adjunto]:
+        result = await self._session.scalars(
+            select(Adjunto)
+            .where(
+                Adjunto.historia_id == historia_id,
+                Adjunto.deleted_at.is_(None),
+            )
+            .order_by(Adjunto.created_at.desc())
+        )
+        return list(result)
+
+
+class ConsentimientoRepository(BaseRepository[Consentimiento]):
+    """Append-only consents ordered from the most recent act."""
+
+    model = Consentimiento
+
+    async def list_by_paciente(
+        self, paciente_id: uuid.UUID
+    ) -> list[Consentimiento]:
+        result = await self._session.scalars(
+            select(Consentimiento)
+            .where(
+                Consentimiento.paciente_id == paciente_id,
+                Consentimiento.deleted_at.is_(None),
+            )
+            .order_by(
+                Consentimiento.fecha.desc(),
+                Consentimiento.created_at.desc(),
+            )
+        )
         return list(result)

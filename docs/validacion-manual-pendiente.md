@@ -113,6 +113,52 @@ API: `http://127.0.0.1:8000/docs` (usuario `admin@clinica.test`; contraseña en 
 | 10 | Webhook de oferta | Responder «aceptar»/«rechazar» firmado sobre el mensaje de oferta | 200 `aplicado=true`; un solo turno; el evento duplicado responde `aplicado=false` |
 | 11 | RBAC | `GET /lista-espera` con odontólogo/asistente/auditor y `POST` con odontólogo | 200 de lectura (el odontólogo solo sus entradas) y 403 en escritura |
 
+## C-11 — Historia clínica y odontograma
+
+### Qué se aplicó (resumen no técnico)
+
+La clínica ya puede abrir una ficha clínica por paciente, escribir evoluciones y firmarlas, corregirlas con una nueva evolución enlazada (sin borrar la anterior), registrar el estado de cada pieza dental en un odontograma que guarda versiones, subir fotos o PDF como adjuntos y dejar registrado el consentimiento informado. Todo queda auditado con usuario, IP y dispositivo, y cada rol ve o escribe solo lo que permite la matriz.
+
+### Qué no cambia todavía
+
+- No hay pantalla de ficha clínica: se prueba por Swagger (`http://127.0.0.1:8000/docs`).
+- No están los presupuestos/planes de tratamiento (C-12) ni caja/facturación.
+- El consentimiento guarda hashes de integridad, no una firma digital certificada.
+- El asistente no está vinculado a un profesional concreto: solo accede mientras el paciente está `en_sala`.
+
+### Datos demo para probar
+
+- API/Swagger: `http://127.0.0.1:8000/docs`.
+- Administrador: `admin@clinica.test` / `demo-admin-pass-2026` (lee toda la ficha, no escribe).
+- Odontólogo: `odonto.demo@clinica.test` / `demo-odonto-pass-2026`.
+- El odontólogo demo tiene turnos el 2026-11-09 con Ana Demo (`reservado`), Bruno Demo (`confirmado`) y Carla Demo (`en_sala`).
+
+### Pruebas manuales
+
+| # | Qué probar | Cómo | Esperado |
+|---|---|---|---|
+| 1 | Abrir historia | Login odontólogo; `POST /historia-clinica` con el `paciente_id` de Ana Demo | 201 con `abierta_por` y `fecha_apertura`; repetir da 409 |
+| 2 | Lectura del admin | Login admin; `GET /historia-clinica/{id}` y `GET /pacientes/{id}/consentimientos` | 200; un `POST` clínico da 403 |
+| 3 | Evolución y firma | `POST /historia-clinica/{id}/evoluciones` con texto; `POST .../{evolucion_id}/firmar` con `{}` | 201 borrador; 200 firmada con `firmada_por` y `fecha_firma` |
+| 4 | Firmada inmutable | `PUT` sobre la evolución firmada | 403 y el texto no cambia |
+| 5 | Rectificatoria | `POST .../evoluciones` con `rectifica_a` de la firmada; firmarla; leer la original | 201; la original conserva texto y muestra `rectificada_por` |
+| 6 | Odontograma | `POST .../odontograma/hallazgos` pieza 16/mesial/caries/K02.1; luego pieza 21; luego corregir 16/mesial | Versiones 1, 2 y 3; la versión 1 conserva caries; la vigente muestra el estado nuevo |
+| 7 | FDI inválida | Enviar pieza 19 o cara `lateral` | 422 sin versión nueva |
+| 8 | Hallazgo inmutable | `PUT` o `DELETE /odontograma/hallazgos/{id}` | 405; el hallazgo no cambia |
+| 9 | Adjunto | `POST /adjuntos` multipart con `historia_id` y un PNG; descargar con `GET /adjuntos/{id}` | 201; descarga 200 con MIME, bytes idénticos y `X-Content-Type-Options: nosniff` |
+| 10 | Adjunto inseguro | Subir `.exe`, `text/html`, un archivo >5 MB o un PNG con bytes de PDF; nombre con `..` y separadores | 422 en los cuatro casos; el nombre traversal se guarda como `passwd` |
+| 11 | Consentimiento | `POST /pacientes/{id}/consentimientos` con `procedimiento_invasivo` + `v1-2026-11`; enviar `texto` o `firma_ref` en el body | 201 con hashes; los campos extra dan 422; `GET` lista descendente |
+| 12 | Asistente | Login asistente; paciente Carla (`en_sala`) lectura y edición de borrador; paciente Bruno (`confirmado`) | 200 en Carla, 403 en Bruno; no puede crear, firmar, adjuntar ni consentir |
+| 13 | Sin token | Cualquier endpoint clínico sin `Authorize` | 401 |
+| 14 | Auditoría | Consultar `registro_auditoria` con usuario admin de la base demo | Una fila por acción (`historia_clinica.crear`, `evolucion.*`, `odontograma.versionar`, `adjunto.crear`, `consentimiento.registrar`) con usuario, IP y dispositivo |
+
+### Estado de verificación
+
+- Suite backend completa: **720 tests en verde**.
+- Frontend: **28 tests en verde** y `tsc --noEmit` sin errores.
+- Smoke HTTP contra base descartable: flujo completo en verde; `P0001`, `23505` y `23514` verificados por SQL directo.
+- Pendiente: prueba visual de la ficha cuando exista el change de UI clínica y validación de la cátedra sobre el vínculo asistente→profesional.
+
 ## Prueba final de la página
 
 Cuando estén todos los changes:

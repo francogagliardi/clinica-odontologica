@@ -71,6 +71,19 @@ def get_redis() -> redis_async.Redis | None:
 
 security_bearer = HTTPBearer(auto_error=False)
 
+MAX_DISPOSITIVO = 120
+
+
+def client_ip(request: Request) -> str:
+    """Client address for audit rows; TestClient reports `testclient`."""
+    return request.client.host if request.client else "unknown"
+
+
+def dispositivo(request: Request) -> str | None:
+    """User-Agent truncated to the audit column width (design D9)."""
+    user_agent = request.headers.get("user-agent")
+    return user_agent[:MAX_DISPOSITIVO] if user_agent else None
+
 
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security_bearer)],

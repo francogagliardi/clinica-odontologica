@@ -185,9 +185,10 @@ deltas MODIFIED.
 
 ## Resultado de la suite
 
-- Backend: **483 passed** (`pytest tests -q`, PostgreSQL descartable). Incluye los 23 tests
-  nuevos de este slice + 1 test de `rechazo sin siguiente` agregado después del arranque
-  de la suite y verificado en `test_ofertas_vencimiento.py` (10 passed).
+- Backend: **516 passed** en `pytest tests -q` (22 min 29 s, PostgreSQL descartable,
+  incluidos los 23 tests nuevos de este slice) + 1 test agregado después del arranque de esa
+  corrida (`test_rechazo_sin_siguiente_devuelve_el_hueco_a_disponibilidad`), verificado con
+  `test_ofertas_vencimiento.py` → **10 passed**. Total efectivo **517**.
 - Frontend: **28 passed** (`npm test`) y `npm run typecheck` sin errores (sin cambios de UI).
 
 ## Smoke con Docker
@@ -211,3 +212,12 @@ documento.
 - Limpieza de datos de smoke completada.
 
 **Suite backend final: 432 previos + 84 nuevos = 516 passed, 0 failed.** Frontend: 28 passed y typecheck limpio.
+
+**Re-ejecución independiente del smoke (misma sesión, 2026-11-04):** 41 verificaciones OK
+(profesional/sillón/4 pacientes, 2 entradas FIFO, cancelación con auditoría única, slot
+oculto en ambas disponibilidades, 409 en alta/sobreturno/reprogramación, worker tick,
+mensaje/token, consulta doble sin consumir, aceptación con recursos retenidos, rechazo con
+rotación, vencimiento forzado con rotación y vuelta a disponibilidad). Limpieza verificada:
+0 turnos, 0 entradas, 0 pacientes/profesional/mensajes de smoke. El stack quedó **arriba**
+(`api`, `db`, `redis`) por pedido del usuario; `registro_auditoria` conserva las filas del
+smoke (append-only, RN-SE-02).

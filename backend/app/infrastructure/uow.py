@@ -9,12 +9,18 @@ from types import TracebackType
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.infrastructure.repositories import (
+    AdjuntoRepository,
     AuditoriaRepository,
     BloqueoRepository,
+    ConsentimientoRepository,
     ConsultorioRepository,
+    EvolucionRepository,
+    HallazgoDentalRepository,
+    HistoriaClinicaRepository,
     ListaEsperaRepository,
     MensajeWhatsAppRepository,
     ObraSocialRepository,
+    OdontogramaRepository,
     PacienteRepository,
     PrestacionRepository,
     ProfesionalRepository,
@@ -51,6 +57,12 @@ class UnitOfWork:
         self.recordatorios = RecordatorioRepository(self._session)
         self.mensajes = MensajeWhatsAppRepository(self._session)
         self.lista_espera = ListaEsperaRepository(self._session)
+        self.historias = HistoriaClinicaRepository(self._session)
+        self.evoluciones = EvolucionRepository(self._session)
+        self.odontogramas = OdontogramaRepository(self._session)
+        self.hallazgos = HallazgoDentalRepository(self._session)
+        self.adjuntos = AdjuntoRepository(self._session)
+        self.consentimientos = ConsentimientoRepository(self._session)
         return self
 
     async def __aexit__(
