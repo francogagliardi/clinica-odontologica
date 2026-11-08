@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     arca_cuit: str
     arca_cert: str
     arca_key: str
+    arca_provider: str = "test"
+    arca_punto_venta: int = 1
+    arca_condicion_emisor: str = "responsable_inscripto"
+    arca_max_intentos: int = 5
+    arca_worker_interval_seconds: int = 30
     app_base_url: str = "http://127.0.0.1:8080"
     gestion_token_ttl_minutes: int = 10080
     lista_espera_oferta_ttl_minutos: int = 30

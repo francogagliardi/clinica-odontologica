@@ -14,12 +14,16 @@ from app.infrastructure.repositories import (
     BloqueoRepository,
     CajaDiariaRepository,
     CobroRepository,
+    ComprobanteEnvioRepository,
+    ComprobanteRepository,
     ConsentimientoRepository,
     ConsultorioRepository,
     EvolucionRepository,
     HallazgoDentalRepository,
     HistoriaClinicaRepository,
+    ItemLiquidacionRepository,
     ItemPresupuestoRepository,
+    LiquidacionRepository,
     ListaEsperaRepository,
     MensajeWhatsAppRepository,
     MovimientoCajaRepository,
@@ -32,6 +36,7 @@ from app.infrastructure.repositories import (
     ProfesionalSillonRepository,
     RecordatorioRepository,
     RolRepository,
+    SecuenciaComprobanteRepository,
     SillonRepository,
     TurnoRepository,
     UsuarioRepository,
@@ -73,6 +78,13 @@ class UnitOfWork:
         self.cobros = CobroRepository(self._session)
         self.cajas = CajaDiariaRepository(self._session)
         self.movimientos_caja = MovimientoCajaRepository(self._session)
+        self.comprobantes = ComprobanteRepository(self._session)
+        self.comprobantes_envios = ComprobanteEnvioRepository(self._session)
+        self.secuencias_comprobantes = SecuenciaComprobanteRepository(
+            self._session
+        )
+        self.liquidaciones = LiquidacionRepository(self._session)
+        self.items_liquidacion = ItemLiquidacionRepository(self._session)
         return self
 
     async def __aexit__(

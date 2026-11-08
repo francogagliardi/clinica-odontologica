@@ -378,12 +378,12 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux/Integ.)    │ A
 ---
 
 ### [C-14] `facturacion-arca-obras-sociales`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado 2026-11-08 (archivado en `openspec/changes/archive/`) — 1109 tests backend + 28 frontend
 - **Scope**: Factura electrónica ARCA (homologación) + validación y liquidación de obras sociales (US-031, DD-04/DD-09)
-  - Modelo `ComprobanteARCA` (cobro_id, tipo B/C, CAE, QR, fecha_emisión); todo cobro emite comprobante (RN-AD-01)
-  - Emisión fiscal en cola Redis `arca:emitir` con reintentos; ARCA caído → comprobante interno emitido + factura fiscal encolada (nunca se pierde el cobro); factura enviada por WhatsApp/email
-  - Validación preventiva de cobertura antes de registrar la práctica (RN-OS-01, local contra "OS Demo"); liquidación por período con trazabilidad (RN-OS-03); endpoints `/comprobantes, /obras-sociales/liquidaciones`
-  - Migración 008b: comprobante_arca
+  - Modelo `Comprobante` (cobro único, tipo B/C, número interno/fiscal, CAE, QR, fecha, estado fiscal) + `ComprobanteEnvio` + `SecuenciaComprobante`; todo cobro aprobado emite comprobante (RN-AD-01)
+  - Emisión fiscal vía worker `arca:emitir` con claim, reintentos exponenciales e idempotencia de CAE; ARCA caído → comprobante interno + job pendiente (nunca se pierde el cobro); envío WhatsApp simulado
+  - Validación preventiva de cobertura local (RN-OS-01) y liquidación por período con trazabilidad de prácticas (RN-OS-03); endpoints `/comprobantes` y `/obras-sociales/liquidaciones`
+  - Migración `0013_facturacion_arca`: comprobantes, envíos, secuencias y liquidaciones
   - Tests: ARCA caído → interno + job pendiente, reintento emite sin duplicar CAE, QR presente, liquidación cuadra prácticas incluidas
 - **Dependencias**: C-13, C-12
 - **Governance**: CRITICO

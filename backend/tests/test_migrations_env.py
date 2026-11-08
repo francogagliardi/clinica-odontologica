@@ -37,11 +37,11 @@ def test_baseline_revision_carries_zero_domain_ddl() -> None:
 
 
 def test_single_head_revision() -> None:
-    """The revision graph has exactly one head (C-13 extends the chain)."""
+    """The revision graph has exactly one head (C-14 extends the chain)."""
     config = Config(str(_BACKEND_DIR / "alembic.ini"))
     config.set_main_option("script_location", str(_BACKEND_DIR / "alembic"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["0012_caja_cobros"]
+    assert script.get_heads() == ["0013_facturacion_arca"]
 
 
 def test_c02_revision_chains_from_baseline() -> None:
@@ -161,3 +161,20 @@ def test_c12_revision_chains_from_c11() -> None:
     assert "items_presupuesto" in source
     assert "subtotal = cobertura_calculada + copago" in source
     assert "pieza / 10 BETWEEN 1 AND 4" in source
+
+
+def test_c14_revision_chains_from_c13() -> None:
+    """0013 adds billing and settlements without branching the history."""
+    source = (
+        _BACKEND_DIR / "alembic" / "versions" / "0013_facturacion_arca.py"
+    ).read_text(encoding="utf-8")
+    assert (
+        'down_revision: str | None = "0012_caja_cobros"' in source
+    )
+    assert "comprobantes" in source
+    assert "comprobantes_envios" in source
+    assert "secuencias_comprobantes" in source
+    assert "liquidaciones_obras_sociales" in source
+    assert "items_liquidacion" in source
+    assert "EXCLUDE USING gist" in source
+    assert "btree_gist" in source

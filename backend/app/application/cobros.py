@@ -22,6 +22,10 @@ from app.application.clinica import (
     profesional_del_usuario,
     roles_activos,
 )
+from app.application.comprobantes import (
+    ConfiguracionFiscal,
+    crear_para_cobro,
+)
 from app.domain.caja import (
     fecha_local,
     validar_medio,
@@ -322,8 +326,10 @@ async def crear_cobro(
     consultorio_id: uuid.UUID,
     usuario: Usuario,
     comando: ComandoCobro,
+    fiscal: ConfiguracionFiscal,
     ip: str | None = None,
     dispositivo: str | None = None,
+    redis_client: object | None = None,
 ) -> tuple[Cobro, Decimal | None]:
     """Validate per type, persist the payment and mirror it in the register."""
     paciente = await _resolver_paciente(
@@ -438,6 +444,16 @@ async def crear_cobro(
         ip=ip,
         dispositivo=dispositivo,
     )
+    if cobro.estado == "aprobado":
+        await crear_para_cobro(
+            uow,
+            cobro=cobro,
+            config=fiscal,
+            usuario_id=usuario.id,
+            ip=ip,
+            dispositivo=dispositivo,
+            redis_client=redis_client,
+        )
     return cobro, saldo
 
 
@@ -583,8 +599,10 @@ async def conciliar_pago(
     uow: UnitOfWork,
     pago: PagoNormalizado,
     *,
+    fiscal: ConfiguracionFiscal,
     ip: str | None = None,
     dispositivo: str | None = None,
+    redis_client: object | None = None,
 ) -> Cobro:
     """Resolve the external reference and apply the payment idempotently (D2)."""
     cobro = await uow.cobros.get(pago.cobro_id)
@@ -697,6 +715,15 @@ async def conciliar_pago(
                 usuario_id=None,
                 ip=ip,
                 dispositivo=dispositivo,
+            )
+            await crear_para_cobro(
+                uow,
+                cobro=cobro,
+                config=fiscal,
+                usuario_id=None,
+                ip=ip,
+                dispositivo=dispositivo,
+                redis_client=redis_client,
             )
     except IntegrityError as error:
         if _sqlstate(error) != "23505":

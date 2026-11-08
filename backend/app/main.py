@@ -11,8 +11,10 @@ from app.api import (
     bloqueos,
     caja,
     cobros,
+    comprobantes,
     health,
     historia_clinica,
+    liquidaciones,
     lista_espera,
     obras_sociales,
     odontograma,
@@ -63,11 +65,13 @@ app.include_router(sillones.router)
 app.include_router(prestaciones.router)
 app.include_router(presupuestos.router)
 app.include_router(cobros.router)
+app.include_router(comprobantes.router)
 app.include_router(caja.router)
 app.include_router(bloqueos.router)
 app.include_router(pacientes.router)
 app.include_router(historia_clinica.router)
 app.include_router(odontograma.router)
+app.include_router(liquidaciones.router)
 app.include_router(obras_sociales.router)
 app.include_router(turnos.router)
 app.include_router(lista_espera.router)

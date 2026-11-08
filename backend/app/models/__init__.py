@@ -24,6 +24,12 @@ from app.models.comercial import (
     Presupuesto,
 )
 from app.models.comunicaciones import MensajeWhatsApp, Recordatorio
+from app.models.fiscal import (
+    Comprobante,
+    ComprobanteEnvio,
+    SecuenciaComprobante,
+)
+from app.models.liquidaciones import ItemLiquidacion, LiquidacionObraSocial
 from app.models.lista_espera import EntradaListaEspera
 from app.models.pacientes import Paciente
 from app.models.security import (
@@ -42,13 +48,17 @@ __all__ = [
     "Bloqueo",
     "CajaDiaria",
     "Cobro",
+    "Comprobante",
+    "ComprobanteEnvio",
     "Consentimiento",
     "Consultorio",
     "EntradaListaEspera",
     "Evolucion",
     "HallazgoDental",
     "HistoriaClinica",
+    "ItemLiquidacion",
     "ItemPresupuesto",
+    "LiquidacionObraSocial",
     "MensajeWhatsApp",
     "MovimientoCaja",
     "ObraSocial",
@@ -61,6 +71,7 @@ __all__ = [
     "Recordatorio",
     "RegistroAuditoria",
     "Rol",
+    "SecuenciaComprobante",
     "Sillon",
     "TokenUnSoloUso",
     "Turno",

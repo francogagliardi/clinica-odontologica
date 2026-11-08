@@ -7,6 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.settings import Settings, load_settings
+from app.infrastructure.arca import get_arca_client
 
 _REQUIRED = [
     "DATABASE_URL",
@@ -140,3 +141,49 @@ def test_lista_espera_oferta_ttl_default_and_override(monkeypatch) -> None:
 
     monkeypatch.setenv("LISTA_ESPERA_OFERTA_TTL_MINUTOS", "15")
     assert load_settings().lista_espera_oferta_ttl_minutos == 15
+
+
+_ARCA_ENV = (
+    "ARCA_PROVIDER",
+    "ARCA_PUNTO_VENTA",
+    "ARCA_CONDICION_EMISOR",
+    "ARCA_MAX_INTENTOS",
+    "ARCA_WORKER_INTERVAL_SECONDS",
+)
+
+
+def test_arca_config_defaults_and_overrides(monkeypatch) -> None:
+    """C-14/D13: billing defaults keep the trial provider and are overridable."""
+    for key, value in _full_env().items():
+        monkeypatch.setenv(key, value)
+    for key in _ARCA_ENV:
+        monkeypatch.delenv(key, raising=False)
+
+    settings = load_settings()
+    assert settings.arca_provider == "test"
+    assert settings.arca_punto_venta == 1
+    assert settings.arca_condicion_emisor == "responsable_inscripto"
+    assert settings.arca_max_intentos == 5
+    assert settings.arca_worker_interval_seconds == 30
+
+    monkeypatch.setenv("ARCA_PUNTO_VENTA", "3")
+    monkeypatch.setenv("ARCA_CONDICION_EMISOR", "monotributista")
+    monkeypatch.setenv("ARCA_MAX_INTENTOS", "2")
+    monkeypatch.setenv("ARCA_WORKER_INTERVAL_SECONDS", "5")
+    cambiado = load_settings()
+    assert cambiado.arca_punto_venta == 3
+    assert cambiado.arca_condicion_emisor == "monotributista"
+    assert cambiado.arca_max_intentos == 2
+    assert cambiado.arca_worker_interval_seconds == 5
+
+
+def test_arca_provider_invalido_falla_al_construir_el_cliente(
+    monkeypatch,
+) -> None:
+    """C-14/D3: any provider other than `test` fails explicitly (R-12)."""
+    for key, value in _full_env().items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setenv("ARCA_PROVIDER", "produccion")
+
+    with pytest.raises(RuntimeError, match="ARCA_PROVIDER"):
+        get_arca_client(load_settings())

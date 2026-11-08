@@ -6,14 +6,19 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.api.deps import (
+    get_cobertura_provider,
     get_consultorio_demo_id,
     get_uow,
     reject_unexpected_query,
+    reject_unexpected_query_except,
     require_role,
 )
+from app.application.cobertura import validar_cobertura
+from app.application.presupuestos import CoberturaProvider
 from app.infrastructure.uow import UnitOfWork
 from app.models.comercial import ObraSocial
 from app.models.security import Usuario
+from app.schemas.cobertura import CoberturaResponse
 from app.schemas.pacientes import (
     ObraSocialCreate,
     ObraSocialResponse,
@@ -110,6 +115,43 @@ async def list_obras_sociales(
 ) -> list[ObraSocialResponse]:
     obras = await uow.obras_sociales.list_by_consultorio(consultorio_id)
     return [_to_response(obra) for obra in obras]
+
+
+@router.get(
+    "/cobertura",
+    response_model=CoberturaResponse,
+    summary="Validar cobertura de una práctica (solo reglas locales)",
+    dependencies=[
+        Depends(
+            reject_unexpected_query_except("paciente_id", "prestacion_id")
+        )
+    ],
+)
+async def cobertura(
+    _current: Annotated[Usuario, Depends(_lectura)],
+    uow: Annotated[UnitOfWork, Depends(get_uow)],
+    consultorio_id: Annotated[uuid.UUID, Depends(get_consultorio_demo_id)],
+    paciente_id: uuid.UUID,
+    prestacion_id: uuid.UUID,
+    provider: Annotated[
+        CoberturaProvider, Depends(get_cobertura_provider)
+    ],
+) -> CoberturaResponse:
+    paciente, prestacion, resultado = await validar_cobertura(
+        uow,
+        provider,
+        consultorio_id=consultorio_id,
+        paciente_id=paciente_id,
+        prestacion_id=prestacion_id,
+    )
+    return CoberturaResponse(
+        paciente_id=paciente.id,
+        prestacion_id=prestacion.id,
+        estado=resultado.estado,  # type: ignore[arg-type]
+        cobertura_porcentaje=resultado.cobertura_porcentaje,
+        cobertura_monto=resultado.cobertura_monto,
+        copago_monto=resultado.copago_monto,
+    )
 
 
 @router.post(

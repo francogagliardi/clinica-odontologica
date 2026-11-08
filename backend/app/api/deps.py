@@ -16,11 +16,20 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.application.comprobantes import (
+    ConfiguracionFiscal,
+    configuracion_fiscal,
+)
+from app.application.presupuestos import (
+    CoberturaProvider,
+    get_cobertura_provider,
+)
 from app.core import resources
 from app.core.security import decode_access_token
 from app.core.settings import Settings, load_settings
 from app.core.throttling import LoginRateLimiter, default_login_limiter
-from app.infrastructure import mercadopago
+from app.infrastructure import arca, mercadopago
+from app.infrastructure import whatsapp as whatsapp_infra
 from app.infrastructure.uow import UnitOfWork
 from app.models.security import Usuario
 
@@ -41,6 +50,27 @@ def get_mercadopago_client(
 ) -> mercadopago.MercadoPagoClient:
     """Inject the payment provider (only the simulated one in v1, D3/R-12)."""
     return mercadopago.get_mercadopago_client(settings)
+
+
+def get_arca_client(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> arca.ArcaClient:
+    """Inject the ARCA provider (only the simulated one in v1, D3/R-12)."""
+    return arca.get_arca_client(settings)
+
+
+def get_whatsapp_client(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> whatsapp_infra.WhatsAppClient:
+    """Inject the messaging provider (trial layer only in v1, R-12)."""
+    return whatsapp_infra.get_whatsapp_client(settings)
+
+
+def get_configuracion_fiscal(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> ConfiguracionFiscal:
+    """Inject the receipt configuration (fixed point of sale in v1)."""
+    return configuracion_fiscal(settings)
 
 
 async def reject_unexpected_query(request: Request) -> None:

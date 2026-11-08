@@ -108,11 +108,11 @@ async def _sqlstate_de(
 
 
 def test_c13_upgrade_crea_tablas_checks_e_indices(engine) -> None:
-    """Expected: head is 0012 and the three tables with D7/D9 objects exist."""
+    """Expected: the three C-13 tables with D7/D9 objects exist at head."""
 
     async def scenario() -> None:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0012_caja_cobros"
+        assert snapshot["version"] == "0013_facturacion_arca"
         assert _TABLAS_CAJA <= set(snapshot["tables"])
         assert _TABLAS_CAJA <= set(Base.metadata.tables)
         assert snapshot["tables"] == set(Base.metadata.tables) | {
@@ -432,7 +432,7 @@ def test_c13_downgrade_y_upgrade_restaura_solo_sus_tablas(
 
     async def after_upgrade() -> dict[str, object]:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0012_caja_cobros"
+        assert snapshot["version"] == "0013_facturacion_arca"
         assert _TABLAS_CAJA <= set(snapshot["tables"])
         checks: set[str] = snapshot["checks"]  # type: ignore[assignment]
         assert _CHECKS_CAJA <= checks

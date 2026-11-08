@@ -8,12 +8,14 @@ from pydantic import ValidationError
 from app.api.deps import (
     client_ip,
     dispositivo,
+    get_configuracion_fiscal,
     get_mercadopago_client,
     get_redis,
     get_settings,
     get_uow,
 )
 from app.application.cobros import conciliar_pago
+from app.application.comprobantes import ConfiguracionFiscal
 from app.application.webhooks import firma_valida, procesar_webhook
 from app.core.settings import Settings
 from app.infrastructure.mercadopago import (
@@ -84,6 +86,10 @@ async def mercadopago_webhook(
     mp_client: Annotated[
         MercadoPagoClient, Depends(get_mercadopago_client)
     ],
+    fiscal: Annotated[
+        ConfiguracionFiscal, Depends(get_configuracion_fiscal)
+    ],
+    redis_client: Annotated[object | None, Depends(get_redis)],
     x_signature: Annotated[
         str | None, Header(alias="x-signature")
     ] = None,
@@ -130,7 +136,9 @@ async def mercadopago_webhook(
     await conciliar_pago(
         uow,
         pago,
+        fiscal=fiscal,
         ip=client_ip(request),
         dispositivo=dispositivo(request),
+        redis_client=redis_client,
     )
     return WebhookMercadoPagoResponse(recibido=True)

@@ -20,6 +20,11 @@ _FAKE_ENV = {
     "ARCA_CUIT": "20000000001",
     "ARCA_CERT": "test-cert",
     "ARCA_KEY": "test-key",
+    "ARCA_PROVIDER": "test",
+    "ARCA_PUNTO_VENTA": "1",
+    "ARCA_CONDICION_EMISOR": "responsable_inscripto",
+    "ARCA_MAX_INTENTOS": "5",
+    "ARCA_WORKER_INTERVAL_SECONDS": "30",
     "APP_BASE_URL": "http://127.0.0.1:8080",
 }
 

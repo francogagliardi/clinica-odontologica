@@ -15,13 +15,16 @@ from fastapi import APIRouter, Depends, Request, status
 from app.api.deps import (
     client_ip,
     dispositivo,
+    get_configuracion_fiscal,
     get_consultorio_demo_id,
     get_mercadopago_client,
+    get_redis,
     get_uow,
     reject_unexpected_query,
     reject_unexpected_query_except,
     require_role,
 )
+from app.application.comprobantes import ConfiguracionFiscal
 from app.application.cobros import (
     ComandoCobro,
     crear_cobro,
@@ -80,6 +83,10 @@ async def create_cobro(
     mp_client: Annotated[
         MercadoPagoClient, Depends(get_mercadopago_client)
     ],
+    fiscal: Annotated[
+        ConfiguracionFiscal, Depends(get_configuracion_fiscal)
+    ],
+    redis_client: Annotated[object | None, Depends(get_redis)],
 ) -> CobroResponse:
     cobro, saldo = await crear_cobro(
         uow,
@@ -94,8 +101,10 @@ async def create_cobro(
             turno_id=payload.turno_id,
             presupuesto_id=payload.presupuesto_id,
         ),
+        fiscal=fiscal,
         ip=client_ip(request),
         dispositivo=dispositivo(request),
+        redis_client=redis_client,
     )
     return _to_response(cobro, saldo)
 

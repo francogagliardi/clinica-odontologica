@@ -232,6 +232,30 @@ El odontólogo ya puede armar un presupuesto o plan de tratamiento con una o var
 | 15 | Reembolso | `POST /cobros/{id}/reembolsar` | 200 `reembolsado`, auditoría, sin llamada real a MP |
 | 16 | RBAC | Recepción cobra; odontólogo solo lectura de sus cobros y sin `/caja`; asistente 403; auditor lectura | según matriz |
 
+## C-14 — Facturación ARCA, cobertura y liquidaciones
+
+> Cierre sin espera por change (decisión del usuario 2026-11-03): la aceptación funcional se hará en la prueba final de la página. Resumen no técnico: cada cobro aprobado obtiene un comprobante interno numerado y verificable; el sistema intenta además la factura fiscal simulada de ARCA y, si no puede, conserva el comprobante interno y reintenta. Se puede consultar la cobertura de una práctica antes de atender y liquidar por período lo que la obra social cubre, con cierre que congela totales.
+
+| # | Qué probar | Cómo | Esperado |
+|---|---|---|---|
+| 1 | Cobro efectivo genera comprobante | Cobrar en efectivo y consultar `GET /comprobantes?cobro_id=…` | 201; comprobante `pendiente` con número interno, tipo B, importe y QR interno |
+| 2 | Cobro pendiente/rechazado no factura | Crear cobro MP pendiente o webhook rechazado | No existe comprobante |
+| 3 | Emisión fiscal simulada | Ejecutar `python -m app.workers arca --once` y consultar el comprobante | `emitido` con CAE de 14 dígitos, número fiscal y QR AFIP verificable |
+| 4 | Reemisión | Repetir el worker sobre el mismo comprobante | No cambia el CAE ni crea otra fila |
+| 5 | ARCA caído | Simular indisponibilidad, consultar y reintentar | Comprobante interno `pendiente`; reintento lo deja `pendiente` y el worker lo emite al volver |
+| 6 | Envío simulado | `POST /comprobantes/{id}/enviar` con `canal=whatsapp` | 201 con destino del paciente; repetir → 200 sin duplicar |
+| 7 | Envío no emitido | Enviar un comprobante `pendiente`/`fallido` | 409 |
+| 8 | Cobertura cubierta | `GET /obras-sociales/cobertura` con paciente de OS Demo y CONS | 200 `cubierta`, 60 %, copago 40 % |
+| 9 | Cobertura no cubierta | Paciente sin OS o práctica fuera del convenio | 200 `no_cubierta`, cobertura 0 y copago igual al precio |
+| 10 | Cobertura pendiente | Convenio inactivo/sin reglas o paciente sin `nro_afiliado` | 200 `pendiente_verificacion`, montos nulos |
+| 11 | Cobertura no escribe | Consultar cobertura y revisar turnos/presupuestos/cobros | Sin altas ni modificaciones |
+| 12 | Liquidación | Crear presupuesto aceptado con ítem cubierto y cobro de tratamiento aprobado, luego `POST /obras-sociales/liquidaciones` | 201 `borrador` con ítem trazable y total de coberturas |
+| 13 | Sin prácticas | Liquidar un período sin cobros aprobados | 422 y sin cabecera |
+| 14 | Período inválido/solapado | Fechas invertidas / período que se cruza | 422 / 409 |
+| 15 | Cierre | `POST /obras-sociales/liquidaciones/{id}/cerrar` | 200 `cerrada` con totales congelados; repetir → 200 sin cambios |
+| 16 | Borrado de borrador | `DELETE /obras-sociales/liquidaciones/{id}` | 204; el período y los ítems quedan disponibles |
+| 17 | RBAC | Recepción crea/edita observaciones pero no cierra; odontólogo/auditor solo lectura; asistente 403; sin token 401 | según matriz |
+
 ## Prueba final de la página
 
 Cuando estén todos los changes:

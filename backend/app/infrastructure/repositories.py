@@ -5,7 +5,7 @@ physical-delete operation: business entities are soft-deleted only.
 """
 
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Generic, TypeVar
 
@@ -20,13 +20,17 @@ from app.models import (
     Bloqueo,
     CajaDiaria,
     Cobro,
+    Comprobante,
+    ComprobanteEnvio,
     Consentimiento,
     Consultorio,
     EntradaListaEspera,
     Evolucion,
     HallazgoDental,
     HistoriaClinica,
+    ItemLiquidacion,
     ItemPresupuesto,
+    LiquidacionObraSocial,
     MensajeWhatsApp,
     MovimientoCaja,
     ObraSocial,
@@ -39,6 +43,7 @@ from app.models import (
     Recordatorio,
     RegistroAuditoria,
     Rol,
+    SecuenciaComprobante,
     Sillon,
     Turno,
     Usuario,
@@ -1154,3 +1159,450 @@ class MovimientoCajaRepository(BaseRepository[MovimientoCaja]):
             )
         )
         return result.first()
+
+
+class ComprobanteRepository(BaseRepository[Comprobante]):
+    """Internal receipts and their fiscal queue (C-14, design D1/D4/D5)."""
+
+    model = Comprobante
+
+    async def get_by_cobro(self, cobro_id: uuid.UUID) -> Comprobante | None:
+        """The unique receipt of a payment (idempotent creation lookup)."""
+        result = await self._session.scalars(
+            select(Comprobante).where(
+                Comprobante.cobro_id == cobro_id,
+                Comprobante.deleted_at.is_(None),
+            )
+        )
+        return result.first()
+
+    async def list_filtrado(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        cobro_id: uuid.UUID | None = None,
+        paciente_id: uuid.UUID | None = None,
+        estado: str | None = None,
+        desde: date | None = None,
+        hasta: date | None = None,
+        tipo: str | None = None,
+    ) -> list[Comprobante]:
+        """Consultorio scope plus the declared filters, newest first (D13)."""
+        statement = select(Comprobante).where(
+            Comprobante.consultorio_id == consultorio_id,
+            Comprobante.deleted_at.is_(None),
+        )
+        if cobro_id is not None:
+            statement = statement.where(Comprobante.cobro_id == cobro_id)
+        if paciente_id is not None:
+            statement = statement.where(
+                Comprobante.paciente_id == paciente_id
+            )
+        if estado is not None:
+            statement = statement.where(Comprobante.estado == estado)
+        if desde is not None:
+            statement = statement.where(
+                Comprobante.fecha_emision >= desde
+            )
+        if hasta is not None:
+            statement = statement.where(Comprobante.fecha_emision <= hasta)
+        if tipo is not None:
+            statement = statement.where(Comprobante.tipo == tipo)
+        statement = statement.order_by(
+            Comprobante.fecha_emision.desc(),
+            Comprobante.created_at.desc(),
+            Comprobante.id.desc(),
+        )
+        result = await self._session.scalars(statement)
+        return list(result)
+
+    async def list_pendientes_vencidos(
+        self,
+        ahora: datetime,
+        *,
+        limite: int = 50,
+        claim_timeout_seconds: int = 300,
+    ) -> list[Comprobante]:
+        """Due `pendiente` rows whose claim (if any) already expired (D4).
+
+        This is the durable sweep: it does not depend on Redis, so a lost queue
+        message cannot hide a receipt forever.
+        """
+        limite_claim = ahora - timedelta(seconds=claim_timeout_seconds)
+        statement = (
+            select(Comprobante)
+            .where(
+                Comprobante.estado == "pendiente",
+                Comprobante.deleted_at.is_(None),
+                or_(
+                    Comprobante.proximo_intento.is_(None),
+                    Comprobante.proximo_intento <= ahora,
+                ),
+                or_(
+                    Comprobante.reclamado_at.is_(None),
+                    Comprobante.reclamado_at < limite_claim,
+                ),
+            )
+            .order_by(Comprobante.created_at, Comprobante.id)
+            .limit(limite)
+        )
+        result = await self._session.scalars(statement)
+        return list(result)
+
+    async def reclamar(
+        self,
+        comprobante_id: uuid.UUID,
+        *,
+        token: uuid.UUID,
+        ahora: datetime,
+        claim_timeout_seconds: int = 300,
+    ) -> Comprobante | None:
+        """Atomically take one receipt; None means another worker owns it (D4).
+
+        The provider call happens outside this transaction, so the claim expires
+        after five minutes instead of holding a row lock while waiting.
+        """
+        limite_claim = ahora - timedelta(seconds=claim_timeout_seconds)
+        statement = (
+            update(Comprobante)
+            .where(
+                Comprobante.id == comprobante_id,
+                Comprobante.estado == "pendiente",
+                Comprobante.deleted_at.is_(None),
+                or_(
+                    Comprobante.proximo_intento.is_(None),
+                    Comprobante.proximo_intento <= ahora,
+                ),
+                or_(
+                    Comprobante.reclamado_at.is_(None),
+                    Comprobante.reclamado_at < limite_claim,
+                ),
+            )
+            .values(claim_token=token, reclamado_at=ahora)
+            .returning(Comprobante)
+            .execution_options(synchronize_session=False)
+        )
+        result = await self._session.scalars(statement)
+        return result.first()
+
+
+class ComprobanteEnvioRepository(BaseRepository[ComprobanteEnvio]):
+    """Simulated invoice delivery, one row per receipt and channel (D10)."""
+
+    model = ComprobanteEnvio
+
+    async def get_por_canal(
+        self, comprobante_id: uuid.UUID, canal: str
+    ) -> ComprobanteEnvio | None:
+        result = await self._session.scalars(
+            select(ComprobanteEnvio).where(
+                ComprobanteEnvio.comprobante_id == comprobante_id,
+                ComprobanteEnvio.canal == canal,
+                ComprobanteEnvio.deleted_at.is_(None),
+            )
+        )
+        return result.first()
+
+    async def list_by_comprobante(
+        self, comprobante_id: uuid.UUID
+    ) -> list[ComprobanteEnvio]:
+        result = await self._session.scalars(
+            select(ComprobanteEnvio)
+            .where(
+                ComprobanteEnvio.comprobante_id == comprobante_id,
+                ComprobanteEnvio.deleted_at.is_(None),
+            )
+            .order_by(ComprobanteEnvio.created_at, ComprobanteEnvio.id)
+        )
+        return list(result)
+
+
+class SecuenciaComprobanteRepository:
+    """Gapless counters with `UPDATE ... RETURNING` (design D2).
+
+    The row is created on first use and the increment happens inside the
+    caller's transaction, so a rollback does not consume a number.
+    """
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def _asegurar(
+        self, consultorio_id: uuid.UUID, punto_venta: int
+    ) -> None:
+        await self._session.execute(
+            insert(SecuenciaComprobante)
+            .values(
+                consultorio_id=consultorio_id,
+                punto_venta=punto_venta,
+                ultimo_interno=0,
+                ultimo_fiscal=0,
+            )
+            .on_conflict_do_nothing(
+                index_elements=["consultorio_id", "punto_venta"]
+            )
+        )
+
+    async def siguiente_interno(
+        self, consultorio_id: uuid.UUID, punto_venta: int
+    ) -> int:
+        await self._asegurar(consultorio_id, punto_venta)
+        valor = await self._session.scalar(
+            update(SecuenciaComprobante)
+            .where(
+                SecuenciaComprobante.consultorio_id == consultorio_id,
+                SecuenciaComprobante.punto_venta == punto_venta,
+            )
+            .values(
+                ultimo_interno=SecuenciaComprobante.ultimo_interno + 1
+            )
+            .returning(SecuenciaComprobante.ultimo_interno)
+            .execution_options(synchronize_session=False)
+        )
+        return int(valor)
+
+    async def siguiente_fiscal(
+        self, consultorio_id: uuid.UUID, punto_venta: int
+    ) -> int:
+        await self._asegurar(consultorio_id, punto_venta)
+        valor = await self._session.scalar(
+            update(SecuenciaComprobante)
+            .where(
+                SecuenciaComprobante.consultorio_id == consultorio_id,
+                SecuenciaComprobante.punto_venta == punto_venta,
+            )
+            .values(
+                ultimo_fiscal=SecuenciaComprobante.ultimo_fiscal + 1
+            )
+            .returning(SecuenciaComprobante.ultimo_fiscal)
+            .execution_options(synchronize_session=False)
+        )
+        return int(valor)
+
+
+class LiquidacionRepository(BaseRepository[LiquidacionObraSocial]):
+    """Settlement header plus its live lines (C-14, design D9)."""
+
+    model = LiquidacionObraSocial
+
+    async def get_con_items(
+        self, liquidacion_id: uuid.UUID
+    ) -> tuple[LiquidacionObraSocial | None, list[ItemLiquidacion]]:
+        liquidacion = await self.get(liquidacion_id)
+        if liquidacion is None or liquidacion.deleted_at is not None:
+            return None, []
+        result = await self._session.scalars(
+            select(ItemLiquidacion)
+            .where(
+                ItemLiquidacion.liquidacion_id == liquidacion_id,
+                ItemLiquidacion.deleted_at.is_(None),
+            )
+            .order_by(ItemLiquidacion.created_at, ItemLiquidacion.id)
+        )
+        return liquidacion, list(result)
+
+    async def get_solapada(
+        self,
+        *,
+        consultorio_id: uuid.UUID,
+        obra_social_id: uuid.UUID,
+        desde: date,
+        hasta: date,
+        exclude_id: uuid.UUID | None = None,
+    ) -> LiquidacionObraSocial | None:
+        """A live settlement of the same agreement whose period overlaps."""
+        statement = select(LiquidacionObraSocial).where(
+            LiquidacionObraSocial.consultorio_id == consultorio_id,
+            LiquidacionObraSocial.obra_social_id == obra_social_id,
+            LiquidacionObraSocial.deleted_at.is_(None),
+            LiquidacionObraSocial.desde <= hasta,
+            LiquidacionObraSocial.hasta >= desde,
+        )
+        if exclude_id is not None:
+            statement = statement.where(
+                LiquidacionObraSocial.id != exclude_id
+            )
+        result = await self._session.scalars(statement)
+        return result.first()
+
+    async def list_filtrado(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        obra_social_id: uuid.UUID | None = None,
+        estado: str | None = None,
+        desde: date | None = None,
+        hasta: date | None = None,
+    ) -> list[LiquidacionObraSocial]:
+        """Consultorio scope plus the declared period/agreement filters."""
+        statement = select(LiquidacionObraSocial).where(
+            LiquidacionObraSocial.consultorio_id == consultorio_id,
+            LiquidacionObraSocial.deleted_at.is_(None),
+        )
+        if obra_social_id is not None:
+            statement = statement.where(
+                LiquidacionObraSocial.obra_social_id == obra_social_id
+            )
+        if estado is not None:
+            statement = statement.where(
+                LiquidacionObraSocial.estado == estado
+            )
+        if desde is not None:
+            statement = statement.where(
+                LiquidacionObraSocial.hasta >= desde
+            )
+        if hasta is not None:
+            statement = statement.where(
+                LiquidacionObraSocial.desde <= hasta
+            )
+        statement = statement.order_by(
+            LiquidacionObraSocial.desde.desc(),
+            LiquidacionObraSocial.created_at.desc(),
+            LiquidacionObraSocial.id.desc(),
+        )
+        result = await self._session.scalars(statement)
+        return list(result)
+
+    async def list_items_liquidables(
+        self,
+        *,
+        consultorio_id: uuid.UUID,
+        obra_social_id: uuid.UUID,
+        desde: date,
+        hasta: date,
+    ) -> list[tuple[ItemPresupuesto, Presupuesto, Cobro]]:
+        """D9 selection: covered budget lines of a treatment payment.
+
+        A payment is the closest signal of realised practice; one payment per
+        budget is enough, and a line already in a live settlement is excluded.
+        """
+        cobros = list(
+            await self._session.scalars(
+                select(Cobro)
+                .join(Paciente, Paciente.id == Cobro.paciente_id)
+                .where(
+                    Cobro.consultorio_id == consultorio_id,
+                    Cobro.tipo == "tratamiento",
+                    Cobro.estado == "aprobado",
+                    Cobro.fecha_operacion >= desde,
+                    Cobro.fecha_operacion <= hasta,
+                    Cobro.deleted_at.is_(None),
+                    Paciente.obra_social_id == obra_social_id,
+                    Paciente.consultorio_id == consultorio_id,
+                    Paciente.deleted_at.is_(None),
+                )
+                .order_by(Cobro.fecha_operacion, Cobro.id)
+            )
+        )
+        por_presupuesto: dict[uuid.UUID, Cobro] = {}
+        for cobro in cobros:
+            if cobro.presupuesto_id is not None:
+                por_presupuesto.setdefault(cobro.presupuesto_id, cobro)
+        if not por_presupuesto:
+            return []
+
+        presupuestos = {
+            presupuesto.id: presupuesto
+            for presupuesto in await self._session.scalars(
+                select(Presupuesto).where(
+                    Presupuesto.id.in_(list(por_presupuesto)),
+                    Presupuesto.consultorio_id == consultorio_id,
+                    Presupuesto.estado.in_(
+                        ("aceptado", "en_curso", "finalizado")
+                    ),
+                    Presupuesto.deleted_at.is_(None),
+                )
+            )
+        }
+        if not presupuestos:
+            return []
+
+        items = list(
+            await self._session.scalars(
+                select(ItemPresupuesto)
+                .where(
+                    ItemPresupuesto.presupuesto_id.in_(
+                        list(presupuestos)
+                    ),
+                    ItemPresupuesto.deleted_at.is_(None),
+                    ItemPresupuesto.cobertura_item > 0,
+                )
+                .order_by(
+                    ItemPresupuesto.presupuesto_id,
+                    ItemPresupuesto.created_at,
+                    ItemPresupuesto.id,
+                )
+            )
+        )
+        if not items:
+            return []
+
+        ya_liquidados = set(
+            await self._session.scalars(
+                select(ItemLiquidacion.item_presupuesto_id).where(
+                    ItemLiquidacion.item_presupuesto_id.in_(
+                        [item.id for item in items]
+                    ),
+                    ItemLiquidacion.deleted_at.is_(None),
+                )
+            )
+        )
+        return [
+            (
+                item,
+                presupuestos[item.presupuesto_id],
+                por_presupuesto[item.presupuesto_id],
+            )
+            for item in items
+            if item.id not in ya_liquidados
+        ]
+
+
+class ItemLiquidacionRepository(BaseRepository[ItemLiquidacion]):
+    """Settled lines: the duplicate guard and per-settlement detail."""
+
+    model = ItemLiquidacion
+
+    async def list_by_liquidacion(
+        self, liquidacion_id: uuid.UUID
+    ) -> list[ItemLiquidacion]:
+        result = await self._session.scalars(
+            select(ItemLiquidacion)
+            .where(
+                ItemLiquidacion.liquidacion_id == liquidacion_id,
+                ItemLiquidacion.deleted_at.is_(None),
+            )
+            .order_by(ItemLiquidacion.created_at, ItemLiquidacion.id)
+        )
+        return list(result)
+
+    async def ids_ya_liquidados(
+        self, item_presupuesto_ids: list[uuid.UUID]
+    ) -> set[uuid.UUID]:
+        """Which budget lines already belong to a live settlement."""
+        if not item_presupuesto_ids:
+            return set()
+        result = await self._session.scalars(
+            select(ItemLiquidacion.item_presupuesto_id).where(
+                ItemLiquidacion.item_presupuesto_id.in_(
+                    item_presupuesto_ids
+                ),
+                ItemLiquidacion.deleted_at.is_(None),
+            )
+        )
+        return set(result)
+
+    async def soft_delete_by_liquidacion(
+        self, liquidacion_id: uuid.UUID
+    ) -> int:
+        """Release every live line when a draft is deleted (D9)."""
+        result = await self._session.execute(
+            update(ItemLiquidacion)
+            .where(
+                ItemLiquidacion.liquidacion_id == liquidacion_id,
+                ItemLiquidacion.deleted_at.is_(None),
+            )
+            .values(is_active=False, deleted_at=func.now()),
+            execution_options={"synchronize_session": False},
+        )
+        return result.rowcount or 0

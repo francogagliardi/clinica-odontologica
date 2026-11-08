@@ -11,13 +11,17 @@ from app.models import (
     Bloqueo,
     CajaDiaria,
     Cobro,
+    Comprobante,
+    ComprobanteEnvio,
     Consentimiento,
     Consultorio,
     EntradaListaEspera,
     Evolucion,
     HallazgoDental,
     HistoriaClinica,
+    ItemLiquidacion,
     ItemPresupuesto,
+    LiquidacionObraSocial,
     MensajeWhatsApp,
     MovimientoCaja,
     ObraSocial,
@@ -30,6 +34,7 @@ from app.models import (
     Recordatorio,
     RegistroAuditoria,
     Rol,
+    SecuenciaComprobante,
     Sillon,
     TokenUnSoloUso,
     Turno,
@@ -66,6 +71,11 @@ EXPECTED_TABLES = {
     "cobros",
     "cajas_diarias",
     "movimientos_caja",
+    "comprobantes",
+    "comprobantes_envios",
+    "secuencias_comprobantes",
+    "liquidaciones_obras_sociales",
+    "items_liquidacion",
 }
 
 
@@ -107,6 +117,10 @@ def test_baja_logica_se_declara_en_entidades_de_negocio() -> None:
         ItemPresupuesto,
         CajaDiaria,
         Cobro,
+        Comprobante,
+        ComprobanteEnvio,
+        ItemLiquidacion,
+        LiquidacionObraSocial,
         MovimientoCaja,
     ):
         columns = set(model.__table__.c.keys())
@@ -142,6 +156,10 @@ def test_check_de_coherencia_de_baja_logica_declarado() -> None:
         ItemPresupuesto,
         CajaDiaria,
         Cobro,
+        Comprobante,
+        ComprobanteEnvio,
+        ItemLiquidacion,
+        LiquidacionObraSocial,
         MovimientoCaja,
     ):
         checks = [
@@ -842,3 +860,143 @@ def test_item_presupuesto_valida_cantidad_fdi_e_importes() -> None:
         for column in indexes["ix_items_presupuesto_presupuesto"].columns
     ] == ["presupuesto_id"]
 
+
+
+# --- C-14 billing and settlement metadata ----------------------------------
+
+
+def test_comprobante_declara_columnas_checks_e_indices() -> None:
+    columns = Comprobante.__table__.c
+    assert {
+        "id",
+        "consultorio_id",
+        "cobro_id",
+        "paciente_id",
+        "tipo",
+        "ambiente",
+        "estado",
+        "numero_interno",
+        "punto_venta",
+        "numero_fiscal",
+        "cae",
+        "cae_vencimiento",
+        "qr_interno",
+        "qr_fiscal",
+        "receptor_nombre",
+        "receptor_documento",
+        "receptor_tipo_documento",
+        "condicion_fiscal_receptor",
+        "condicion_fiscal_emisor",
+        "importe_total",
+        "fecha_emision",
+        "fecha_emision_fiscal",
+        "intentos",
+        "proximo_intento",
+        "ultimo_error",
+        "claim_token",
+        "reclamado_at",
+    } <= set(columns.keys())
+    assert columns.cobro_id.nullable is False
+    assert columns.numero_interno.nullable is False
+    assert columns.qr_interno.nullable is False
+    assert columns.cae.type.length == 14
+    assert columns.estado.default.arg == "pendiente"
+    for importe in ("importe_total",):
+        assert columns[importe].type.precision == 12
+        assert columns[importe].type.scale == 2
+
+    indexes = _indexes()
+    assert indexes["uq_comprobantes_cobro"].unique is True
+    assert indexes["uq_comprobantes_numero_interno"].unique is True
+    cae = indexes["uq_comprobantes_cae"]
+    assert cae.unique is True
+    where_cae = cae.dialect_options["postgresql"].get("where")
+    assert str(where_cae) == "cae IS NOT NULL"
+    fiscal = indexes["uq_comprobantes_fiscal"]
+    assert fiscal.unique is True
+    where_fiscal = fiscal.dialect_options["postgresql"].get("where")
+    assert str(where_fiscal) == "numero_fiscal IS NOT NULL"
+    assert [
+        column.name
+        for column in indexes["ix_comprobantes_estado_proximo"].columns
+    ] == ["estado", "proximo_intento"]
+
+
+def test_comprobante_valida_coherencia_fiscal() -> None:
+    sqltext = " ".join(str(check.sqltext) for check in _checks(Comprobante))
+    assert "estado = 'emitido'" in sqltext
+    assert "cae IS NOT NULL" in sqltext
+    assert "cae_vencimiento IS NOT NULL" in sqltext
+    assert "numero_fiscal IS NOT NULL" in sqltext
+    assert "qr_fiscal IS NOT NULL" in sqltext
+    assert "fecha_emision_fiscal IS NOT NULL" in sqltext
+    assert "estado IN ('pendiente','fallido')" in sqltext
+    assert "estado <> 'fallido' OR ultimo_error IS NOT NULL" in sqltext
+    assert "importe_total > 0" in sqltext
+    assert "intentos >= 0" in sqltext
+    assert "^[0-9]{14}$" in sqltext
+
+
+def test_secuencia_comprobante_tiene_pk_compuesta() -> None:
+    primary_key = SecuenciaComprobante.__table__.primary_key
+    assert [column.name for column in primary_key.columns] == [
+        "consultorio_id",
+        "punto_venta",
+    ]
+    assert "deleted_at" not in SecuenciaComprobante.__table__.c
+
+
+def test_comprobante_envio_unico_por_canal() -> None:
+    indexes = _indexes()
+    unique = indexes["uq_comprobantes_envios_comprobante_canal"]
+    assert unique.unique is True
+    assert [
+        column.name for column in unique.columns
+    ] == ["comprobante_id", "canal"]
+
+
+def test_liquidacion_declara_exclusion_de_periodo() -> None:
+    excludes = {
+        constraint.name: constraint
+        for constraint in LiquidacionObraSocial.__table__.constraints
+        if isinstance(constraint, ExcludeConstraint)
+    }
+    assert set(excludes) == {"ex_liquidaciones_periodo"}
+    constraint = excludes["ex_liquidaciones_periodo"]
+    where = str(constraint.where) if constraint.where is not None else ""
+    assert "deleted_at IS NULL" in where
+    ddl = str(
+        AddConstraint(constraint).compile(dialect=postgresql.dialect())
+    )
+    assert "daterange(desde, hasta" in ddl
+    assert "WITH &&" in ddl
+    assert "USING gist" in ddl
+
+
+def test_liquidacion_valida_periodo_y_cierre() -> None:
+    sqltext = " ".join(
+        str(check.sqltext) for check in _checks(LiquidacionObraSocial)
+    )
+    assert "desde <= hasta" in sqltext
+    assert "estado IN ('borrador','cerrada')" in sqltext
+    assert "estado = 'borrador' AND cerrada_por IS NULL" in sqltext
+    assert "estado = 'cerrada' AND cerrada_por IS NOT NULL" in sqltext
+    assert "total_cobertura >= 0" in sqltext
+    assert "cantidad_practicas >= 0" in sqltext
+
+
+def test_item_liquidacion_unico_por_item_de_presupuesto() -> None:
+    indexes = _indexes()
+    unique = indexes["uq_items_liquidacion_item"]
+    assert unique.unique is True
+    assert [column.name for column in unique.columns] == [
+        "item_presupuesto_id"
+    ]
+    where = unique.dialect_options["postgresql"].get("where")
+    assert str(where) == "deleted_at IS NULL"
+
+    sqltext = " ".join(
+        str(check.sqltext) for check in _checks(ItemLiquidacion)
+    )
+    assert "cantidad > 0" in sqltext
+    assert "cobertura_item >= 0" in sqltext
