@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     whatsapp_max_intentos: int = 5
     whatsapp_worker_interval_seconds: int = 60
     mp_access_token: str
+    mp_provider: str = "test"
+    mp_webhook_secret: str
     arca_cuit: str
     arca_cert: str
     arca_key: str

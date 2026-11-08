@@ -1,6 +1,7 @@
 """Offer acceptance: conversion with retained resources (C-10, tasks 7.1/7.2)."""
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 
 from sqlalchemy import func, select
 
@@ -88,7 +89,11 @@ def test_aceptar_crea_el_turno_con_los_recursos_retenidos(
                 )
             )
 
-    assert {fila.ventana for fila in run(recordatorios())} == {"48h", "24h"}
+    ventanas = {fila.ventana for fila in run(recordatorios())}
+    assert "24h" in ventanas
+    # The 48 h reminder is only programmed when the turn is far enough away.
+    if hora(9) - ahora() > timedelta(hours=48):
+        assert "48h" in ventanas
 
     async def token_usado() -> bool:
         async with session_factory() as session:

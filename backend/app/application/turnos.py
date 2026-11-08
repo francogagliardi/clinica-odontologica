@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError
 
 from app.domain.turnos import ESTADOS_TERMINALES, calcular_fin, validar_ventana
 from app.infrastructure.uow import UnitOfWork
@@ -196,7 +196,7 @@ async def validar_solapamiento(
         )
 
 
-def traducir_exclusion(error: IntegrityError) -> HTTPException | None:
+def traducir_exclusion(error: DBAPIError) -> HTTPException | None:
     original = getattr(error, "orig", error)
     sqlstate = getattr(original, "sqlstate", None) or getattr(
         original, "pgcode", None
@@ -207,6 +207,16 @@ def traducir_exclusion(error: IntegrityError) -> HTTPException | None:
             detail=(
                 "El horario acaba de ser ocupado por otro turno; "
                 "actualizá la disponibilidad"
+            ),
+        )
+    if sqlstate == "40P01":
+        # Two concurrent inserts can deadlock on the GiST exclusion index;
+        # the loser must see a conflict, not a 500, and retry.
+        return HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "El horario está siendo reservado en este momento; "
+                "reintentá la operación"
             ),
         )
     return None
@@ -299,7 +309,7 @@ async def reprogramar_turno(
     turno.prestacion_id = nueva_prestacion_id
     try:
         await uow.session.flush()
-    except IntegrityError as error:
+    except DBAPIError as error:
         conflicto = traducir_exclusion(error)
         if conflicto is not None:
             raise conflicto from error
@@ -359,7 +369,7 @@ async def crear_turno(
     )
     try:
         await uow.turnos.add(turno)
-    except IntegrityError as error:
+    except DBAPIError as error:
         conflicto = traducir_exclusion(error)
         if conflicto is not None:
             raise conflicto from error

@@ -15,6 +15,8 @@ _FAKE_ENV = {
     "WHATSAPP_API_TOKEN": "test-token",
     "WHATSAPP_PHONE_ID": "test-phone-id",
     "MP_ACCESS_TOKEN": "TEST-test-token",
+    "MP_PROVIDER": "test",
+    "MP_WEBHOOK_SECRET": "test-only-webhook-secret",
     "ARCA_CUIT": "20000000001",
     "ARCA_CERT": "test-cert",
     "ARCA_KEY": "test-key",

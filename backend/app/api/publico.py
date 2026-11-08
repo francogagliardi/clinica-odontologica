@@ -9,17 +9,20 @@ import uuid
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import (
+    client_ip,
+    dispositivo,
     get_redis,
     get_settings,
     get_uow,
     reject_unexpected_query,
     reject_unexpected_query_except,
 )
+from app.application.cobros import sincronizar_sena_perdida
 from app.application.lista_espera import registrar_hueco_liberado
 from app.application.turnos import (
     ComandoTurno,
@@ -527,6 +530,7 @@ async def confirmar(
 )
 async def cancelar(
     token: str,
+    request: Request,
     uow: Annotated[UnitOfWork, Depends(get_uow)],
     redis_client: Annotated[object | None, Depends(get_redis)],
     settings: Annotated[Settings, Depends(get_settings)],
@@ -548,6 +552,14 @@ async def cancelar(
     sena_perdida = tarde and turno.sena_estado in {"pendiente", "pagada"}
     if sena_perdida:
         turno.sena_estado = "perdida"
+        # The public path applies the same policy as the backoffice (D4).
+        await sincronizar_sena_perdida(
+            uow,
+            turno,
+            usuario_id=None,
+            ip=client_ip(request),
+            dispositivo=dispositivo(request),
+        )
     from app.application.recordatorios import cancelar_recordatorios
 
     await cancelar_recordatorios(uow, turno.id)

@@ -1,6 +1,7 @@
 """FDI odontogram: versioned snapshots, immutability and audit (C-11 slice 3)."""
 
 import uuid
+from datetime import date
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -121,7 +122,7 @@ def test_primera_version_con_pieza_permanente(
     assert hallazgo["estado"] == "caries"
     assert hallazgo["cie10"] == "K02.1"
     assert hallazgo["diagnostico"] == "Lesión inicial"
-    assert hallazgo["fecha"] == "2026-11-04"
+    assert hallazgo["fecha"] == date.today().isoformat()
 
     vigente = _vigente(api_client, odontologo, historia["id"])
     assert vigente.json() == body

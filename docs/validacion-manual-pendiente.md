@@ -211,6 +211,27 @@ El odontólogo ya puede armar un presupuesto o plan de tratamiento con una o var
 - OpenSpec: change válido y 4/4 artefactos completos.
 - Pendiente: prueba visual cuando exista la UI de presupuestos y la integración con caja/facturación (C-13/C-14).
 
+## C-13 — Caja, cobros y Mercado Pago
+
+| # | Qué probar | Cómo | Esperado |
+|---|---|---|---|
+| 1 | Abrir caja | `POST /caja/abrir` con `monto_apertura=0` | 201, caja `abierta` del día UTC-3 |
+| 2 | Segunda apertura | Repetir el alta | 409 |
+| 3 | Cobro efectivo | `POST /cobros` tipo `tratamiento`, medio `efectivo`, monto ≤ copago | 201 `aprobado` y movimiento de ingreso |
+| 4 | Cobro sin caja | Cobrar con la caja cerrada | 409 |
+| 5 | Seña válida | `POST /cobros` tipo `sena` sobre turno con ENDO y monto 10.000 | 201 `pendiente`/`aprobado`; turno `sena_estado=pagada` al conciliar |
+| 6 | Seña inválida | Seña sobre prestación sin `requiere_sena`, monto distinto o turno cancelado | 422 |
+| 7 | Segunda seña | Repetir una seña viva | 409 |
+| 8 | Seña MP | Cobro `mercadopago` | 201 `pendiente` con link de sandbox |
+| 9 | Webhook aprobado | Simular pago y enviar webhook firmado | 200; cobro `aprobado`, seña pagada e ingreso MP en caja |
+| 10 | Webhook duplicado | Reenviar el mismo pago | 200 sin segundo ingreso |
+| 11 | Firma inválida | Webhook sin firma o adulterada | 401 |
+| 12 | Arqueo | `GET /caja/arqueo` | Efectivo, MP y deudas separados; diferencia 0 si cuadra |
+| 13 | Cierre descuadrado | `POST /caja/cerrar` con monto distinto | 409 y caja sigue abierta |
+| 14 | Cierre cuadrado | Cerrar con el monto del sistema | 200; repetir → 409 |
+| 15 | Reembolso | `POST /cobros/{id}/reembolsar` | 200 `reembolsado`, auditoría, sin llamada real a MP |
+| 16 | RBAC | Recepción cobra; odontólogo solo lectura de sus cobros y sin `/caja`; asistente 403; auditor lectura | según matriz |
+
 ## Prueba final de la página
 
 Cuando estén todos los changes:

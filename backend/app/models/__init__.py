@@ -8,6 +8,7 @@ from app.models.agenda import (
     Turno,
 )
 from app.models.base import AuditMixin, Base
+from app.models.caja import CajaDiaria, Cobro, MovimientoCaja
 from app.models.clinica import (
     Adjunto,
     Consentimiento,
@@ -39,6 +40,8 @@ __all__ = [
     "AuditMixin",
     "Base",
     "Bloqueo",
+    "CajaDiaria",
+    "Cobro",
     "Consentimiento",
     "Consultorio",
     "EntradaListaEspera",
@@ -47,6 +50,7 @@ __all__ = [
     "HistoriaClinica",
     "ItemPresupuesto",
     "MensajeWhatsApp",
+    "MovimientoCaja",
     "ObraSocial",
     "Odontograma",
     "Paciente",

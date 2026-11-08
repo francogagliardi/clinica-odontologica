@@ -112,6 +112,8 @@ async def insertar_turno_db(
     inicio: datetime,
     fin: datetime,
     estado: str = "reservado",
+    prestacion_id: uuid.UUID | None = None,
+    sena_estado: str = "no_requiere",
 ) -> uuid.UUID:
     """Direct insert used to set up conflicts without going through the API."""
     from sqlalchemy import text
@@ -122,9 +124,10 @@ async def insertar_turno_db(
             text(
                 "INSERT INTO turnos "
                 "(id, consultorio_id, paciente_id, profesional_id, "
-                "sillon_id, inicio, fin, estado) "
+                "sillon_id, prestacion_id, inicio, fin, estado, sena_estado) "
                 "VALUES (:id, :consultorio_id, :paciente_id, "
-                ":profesional_id, :sillon_id, :inicio, :fin, :estado)"
+                ":profesional_id, :sillon_id, :prestacion_id, :inicio, :fin, "
+                ":estado, :sena_estado)"
             ),
             {
                 "id": turno_id,
@@ -132,9 +135,11 @@ async def insertar_turno_db(
                 "paciente_id": paciente_id,
                 "profesional_id": profesional_id,
                 "sillon_id": sillon_id,
+                "prestacion_id": prestacion_id,
                 "inicio": inicio,
                 "fin": fin,
                 "estado": estado,
+                "sena_estado": sena_estado,
             },
         )
     return turno_id

@@ -16,6 +16,7 @@ _REQUIRED = [
     "WHATSAPP_PHONE_ID",
     "WHATSAPP_APP_SECRET",
     "MP_ACCESS_TOKEN",
+    "MP_WEBHOOK_SECRET",
     "ARCA_CUIT",
     "ARCA_CERT",
     "ARCA_KEY",
@@ -34,6 +35,8 @@ def _full_env() -> dict[str, str]:
         "WHATSAPP_PHONE_ID": "pid",
         "WHATSAPP_APP_SECRET": "secret",
         "MP_ACCESS_TOKEN": "TEST-x",
+        "MP_PROVIDER": "test",
+        "MP_WEBHOOK_SECRET": "test-only-webhook-secret",
         "ARCA_CUIT": "20000000001",
         "ARCA_CERT": "cert",
         "ARCA_KEY": "key",
@@ -96,6 +99,36 @@ def test_gestion_token_ttl_default_and_override(monkeypatch) -> None:
 
     monkeypatch.setenv("GESTION_TOKEN_TTL_MINUTES", "60")
     assert load_settings().gestion_token_ttl_minutes == 60
+
+
+def test_missing_mp_webhook_secret_fails_naming_it(
+    monkeypatch, tmp_path
+) -> None:
+    """C-13: the webhook secret has no default and stops the app if absent."""
+    monkeypatch.chdir(tmp_path)  # neutralize any local .env: pure process env
+    for key in _REQUIRED:
+        monkeypatch.delenv(key, raising=False)
+    env = _full_env()
+    for key, value in env.items():
+        if key != "MP_WEBHOOK_SECRET":
+            monkeypatch.setenv(key, value)
+    with pytest.raises(ValidationError) as exc_info:
+        Settings()
+    assert "mp_webhook_secret" in str(exc_info.value).lower()
+
+    with pytest.raises(RuntimeError, match="MP_WEBHOOK_SECRET"):
+        load_settings()
+
+
+def test_mp_provider_defaults_to_test_and_is_overridable(monkeypatch) -> None:
+    """C-13/R-12: v1 only allows the simulated provider, `test` by default."""
+    for key, value in _full_env().items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.delenv("MP_PROVIDER", raising=False)
+    assert load_settings().mp_provider == "test"
+
+    monkeypatch.setenv("MP_PROVIDER", "sandbox")
+    assert load_settings().mp_provider == "sandbox"
 
 
 def test_lista_espera_oferta_ttl_default_and_override(monkeypatch) -> None:

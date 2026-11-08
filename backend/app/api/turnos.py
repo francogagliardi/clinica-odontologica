@@ -4,16 +4,22 @@ import uuid
 from datetime import date, datetime, time, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import ValidationError
 
 from app.api.deps import (
+    client_ip,
+    dispositivo,
     get_consultorio_demo_id,
     get_redis,
     get_settings,
     get_uow,
     reject_unexpected_query_except,
     require_role,
+)
+from app.application.cobros import (
+    es_cancelacion_tardia,
+    sincronizar_sena_perdida,
 )
 from app.application.lista_espera import registrar_hueco_liberado
 from app.application.turnos import (
@@ -214,6 +220,7 @@ async def read_turno(
 async def update_estado(
     turno_id: uuid.UUID,
     payload: TurnoEstadoUpdate,
+    request: Request,
     current: Annotated[Usuario, Depends(_lectura)],
     uow: Annotated[UnitOfWork, Depends(get_uow)],
     consultorio_id: Annotated[uuid.UUID, Depends(get_consultorio_demo_id)],
@@ -231,6 +238,30 @@ async def update_estado(
         )
     anterior = turno.estado
     turno.estado = payload.estado
+    if anterior != payload.estado and payload.estado in {
+        "cancelado",
+        "ausente",
+    }:
+        # RN-TU-04: the loss policy belongs to agenda; caja only mirrors it.
+        if turno.sena_estado in {"pendiente", "pagada"}:
+            pierde = payload.estado == "ausente"
+            if payload.estado == "cancelado":
+                consultorio = await uow.consultorios.get(
+                    turno.consultorio_id
+                )
+                assert consultorio is not None
+                pierde = es_cancelacion_tardia(
+                    turno.inicio, consultorio.plazo_cancelacion_horas
+                )
+            if pierde:
+                turno.sena_estado = "perdida"
+                await sincronizar_sena_perdida(
+                    uow,
+                    turno,
+                    usuario_id=current.id,
+                    ip=client_ip(request),
+                    dispositivo=dispositivo(request),
+                )
     if payload.estado in ESTADOS_TERMINALES:
         from app.application.recordatorios import cancelar_recordatorios
 

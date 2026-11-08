@@ -20,6 +20,7 @@ from app.core import resources
 from app.core.security import decode_access_token
 from app.core.settings import Settings, load_settings
 from app.core.throttling import LoginRateLimiter, default_login_limiter
+from app.infrastructure import mercadopago
 from app.infrastructure.uow import UnitOfWork
 from app.models.security import Usuario
 
@@ -33,6 +34,13 @@ def get_settings() -> Settings:
 def get_login_limiter() -> LoginRateLimiter:
     """Inject the login throttler (overridable seam for isolated tests)."""
     return default_login_limiter
+
+
+def get_mercadopago_client(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> mercadopago.MercadoPagoClient:
+    """Inject the payment provider (only the simulated one in v1, D3/R-12)."""
+    return mercadopago.get_mercadopago_client(settings)
 
 
 async def reject_unexpected_query(request: Request) -> None:

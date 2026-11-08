@@ -12,6 +12,8 @@ from app.infrastructure.repositories import (
     AdjuntoRepository,
     AuditoriaRepository,
     BloqueoRepository,
+    CajaDiariaRepository,
+    CobroRepository,
     ConsentimientoRepository,
     ConsultorioRepository,
     EvolucionRepository,
@@ -20,6 +22,7 @@ from app.infrastructure.repositories import (
     ItemPresupuestoRepository,
     ListaEsperaRepository,
     MensajeWhatsAppRepository,
+    MovimientoCajaRepository,
     ObraSocialRepository,
     OdontogramaRepository,
     PacienteRepository,
@@ -67,6 +70,9 @@ class UnitOfWork:
         self.consentimientos = ConsentimientoRepository(self._session)
         self.presupuestos = PresupuestoRepository(self._session)
         self.items_presupuesto = ItemPresupuestoRepository(self._session)
+        self.cobros = CobroRepository(self._session)
+        self.cajas = CajaDiariaRepository(self._session)
+        self.movimientos_caja = MovimientoCajaRepository(self._session)
         return self
 
     async def __aexit__(

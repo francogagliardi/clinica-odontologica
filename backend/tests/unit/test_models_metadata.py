@@ -9,6 +9,8 @@ from app.models import (
     Adjunto,
     Base,
     Bloqueo,
+    CajaDiaria,
+    Cobro,
     Consentimiento,
     Consultorio,
     EntradaListaEspera,
@@ -17,6 +19,7 @@ from app.models import (
     HistoriaClinica,
     ItemPresupuesto,
     MensajeWhatsApp,
+    MovimientoCaja,
     ObraSocial,
     Odontograma,
     Paciente,
@@ -60,6 +63,9 @@ EXPECTED_TABLES = {
     "consentimientos",
     "presupuestos",
     "items_presupuesto",
+    "cobros",
+    "cajas_diarias",
+    "movimientos_caja",
 }
 
 
@@ -99,6 +105,9 @@ def test_baja_logica_se_declara_en_entidades_de_negocio() -> None:
         Consentimiento,
         Presupuesto,
         ItemPresupuesto,
+        CajaDiaria,
+        Cobro,
+        MovimientoCaja,
     ):
         columns = set(model.__table__.c.keys())
         assert {"is_active", "created_at", "updated_at", "deleted_at"} <= columns
@@ -131,6 +140,9 @@ def test_check_de_coherencia_de_baja_logica_declarado() -> None:
         Consentimiento,
         Presupuesto,
         ItemPresupuesto,
+        CajaDiaria,
+        Cobro,
+        MovimientoCaja,
     ):
         checks = [
             constraint

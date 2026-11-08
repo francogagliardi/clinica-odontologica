@@ -37,11 +37,11 @@ def test_baseline_revision_carries_zero_domain_ddl() -> None:
 
 
 def test_single_head_revision() -> None:
-    """The revision graph has exactly one head (C-12 extends the chain)."""
+    """The revision graph has exactly one head (C-13 extends the chain)."""
     config = Config(str(_BACKEND_DIR / "alembic.ini"))
     config.set_main_option("script_location", str(_BACKEND_DIR / "alembic"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["0011_presupuestos"]
+    assert script.get_heads() == ["0012_caja_cobros"]
 
 
 def test_c02_revision_chains_from_baseline() -> None:

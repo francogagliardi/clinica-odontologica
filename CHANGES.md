@@ -360,12 +360,12 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux/Integ.)    │ A
 > JOIN C: C-13 espera a C-06 + C-12. C-14 espera a C-13 (+ C-12 ya ✓).
 
 ### [C-13] `caja-cobros-mercadopago`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado 2026-11-07 (archivado en `openspec/changes/archive/`) — 969 tests backend + 28 frontend
 - **Scope**: Caja diaria + señas + Mercado Pago sandbox con conciliación (US-030, Flujo 4 parcial)
-  - Modelo `Cobro` (paciente, turno_id?, presupuesto_id?, monto ARS — RN-AD-04, medio efectivo/MP, estado); seña exigible solo si `requiere_seña=true` (RN-TU-08), conciliada con el turno (RN-AD-02), pérdida según política visible RN-TU-04
-  - MP sandbox: preferencia/link de pago + webhook idempotente (ack inmediato + worker Redis, idempotencia por id de pago; duplicado/tardío no duplica el cobro)
-  - Caja diaria con arqueo: ingresos/gastos/deudas del día cierran antes del cierre (RN-AD-03); endpoints `/cobros`
-  - Migración 008a: cobro
+  - Modelos `Cobro` (paciente, turno_id?, presupuesto_id?, monto ARS, medio efectivo/MP, estado) + `CajaDiaria` + `MovimientoCaja`; seña exigible solo si `requiere_seña=true` (RN-TU-08), conciliada con el turno (RN-AD-02), pérdida según política visible (RN-TU-04)
+  - MP sandbox: preferencia/link de pago + webhook firmado e idempotente; procesamiento sincrónico transaccional (sin cuarta cola, R-06); duplicado/tardío no duplica el cobro
+  - Caja diaria con arqueo: ingresos/gastos/deudas del día separados (efectivo vs MP), cierre con diferencia cero (RN-AD-03); endpoints `/cobros` y `/caja`
+  - Migración `0012_caja_cobros`: cobro + caja diaria + movimientos
   - Tests: webhook duplicado = un cobro, seña en prestación sin `requiere_seña` 422, arqueo descuadrado 409, cancelación tardía pierde seña
 - **Dependencias**: C-06, C-12
 - **Governance**: CRITICO

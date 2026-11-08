@@ -5,7 +5,8 @@ physical-delete operation: business entities are soft-deleted only.
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Generic, TypeVar
 
 from sqlalchemy import delete, func, or_, select, update
@@ -17,6 +18,8 @@ from app.models import (
     Adjunto,
     Base,
     Bloqueo,
+    CajaDiaria,
+    Cobro,
     Consentimiento,
     Consultorio,
     EntradaListaEspera,
@@ -25,6 +28,7 @@ from app.models import (
     HistoriaClinica,
     ItemPresupuesto,
     MensajeWhatsApp,
+    MovimientoCaja,
     ObraSocial,
     Odontograma,
     Paciente,
@@ -981,3 +985,172 @@ class ItemPresupuestoRepository(BaseRepository[ItemPresupuesto]):
             execution_options={"synchronize_session": False},
         )
         return result.rowcount or 0
+
+
+class CobroRepository(BaseRepository[Cobro]):
+    """Payments: live deposit per appointment and approved treatment total."""
+
+    model = Cobro
+
+    async def get_sena_viva_por_turno(
+        self, turno_id: uuid.UUID
+    ) -> Cobro | None:
+        """A deposit is live while it is pending, approved or already lost.
+
+        Rejected/refunded deposits are terminal and must not block a retry
+        (design D7).
+        """
+        result = await self._session.scalars(
+            select(Cobro).where(
+                Cobro.turno_id == turno_id,
+                Cobro.tipo == "sena",
+                Cobro.estado.in_(("pendiente", "aprobado", "perdido")),
+                Cobro.deleted_at.is_(None),
+            )
+        )
+        return result.first()
+
+    async def get_by_proveedor_pago_id(
+        self, proveedor_pago_id: str
+    ) -> Cobro | None:
+        """Idempotency lookup for the Mercado Pago webhook (design D7)."""
+        result = await self._session.scalars(
+            select(Cobro).where(
+                Cobro.proveedor_pago_id == proveedor_pago_id,
+                Cobro.deleted_at.is_(None),
+            )
+        )
+        return result.first()
+
+    async def sumar_tratamientos_aprobados(
+        self, presupuesto_id: uuid.UUID
+    ) -> Decimal:
+        """Money already collected for a budget, used to compute the balance."""
+        total = await self._session.scalar(
+            select(func.coalesce(func.sum(Cobro.monto), 0)).where(
+                Cobro.presupuesto_id == presupuesto_id,
+                Cobro.tipo == "tratamiento",
+                Cobro.estado == "aprobado",
+                Cobro.deleted_at.is_(None),
+            )
+        )
+        return Decimal(total or 0).quantize(Decimal("0.01"))
+
+    async def list_filtrado(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        paciente_id: uuid.UUID | None = None,
+        turno_id: uuid.UUID | None = None,
+        presupuesto_id: uuid.UUID | None = None,
+        estado: str | None = None,
+        medio: str | None = None,
+        fecha_desde: date | None = None,
+        fecha_hasta: date | None = None,
+        profesional_id: uuid.UUID | None = None,
+    ) -> list[Cobro]:
+        """Consultorio scope plus the declared filters, newest first (D10).
+
+        `profesional_id` narrows to payments whose appointment or budget
+        belongs to that professional, which is how the odontologist reads only
+        their own rows (design D8).
+        """
+        statement = select(Cobro).where(
+            Cobro.consultorio_id == consultorio_id,
+            Cobro.deleted_at.is_(None),
+        )
+        if profesional_id is not None:
+            statement = statement.outerjoin(
+                Turno, Cobro.turno_id == Turno.id
+            ).outerjoin(
+                Presupuesto, Cobro.presupuesto_id == Presupuesto.id
+            )
+            statement = statement.where(
+                or_(
+                    Turno.profesional_id == profesional_id,
+                    Presupuesto.profesional_id == profesional_id,
+                )
+            )
+        if paciente_id is not None:
+            statement = statement.where(Cobro.paciente_id == paciente_id)
+        if turno_id is not None:
+            statement = statement.where(Cobro.turno_id == turno_id)
+        if presupuesto_id is not None:
+            statement = statement.where(
+                Cobro.presupuesto_id == presupuesto_id
+            )
+        if estado is not None:
+            statement = statement.where(Cobro.estado == estado)
+        if medio is not None:
+            statement = statement.where(Cobro.medio == medio)
+        if fecha_desde is not None:
+            statement = statement.where(
+                Cobro.fecha_operacion >= fecha_desde
+            )
+        if fecha_hasta is not None:
+            statement = statement.where(
+                Cobro.fecha_operacion <= fecha_hasta
+            )
+        statement = statement.order_by(
+            Cobro.fecha_operacion.desc(),
+            Cobro.created_at.desc(),
+            Cobro.id.desc(),
+        )
+        result = await self._session.scalars(statement)
+        return list(result)
+
+
+class CajaDiariaRepository(BaseRepository[CajaDiaria]):
+    """One register per consultorio and local date; closing locks the row."""
+
+    model = CajaDiaria
+
+    async def get_por_consultorio_fecha(
+        self,
+        consultorio_id: uuid.UUID,
+        fecha: date,
+        *,
+        for_update: bool = False,
+    ) -> CajaDiaria | None:
+        """Read the day's register, optionally locking it for the close.
+
+        `FOR UPDATE` serializes two simultaneous closings and prevents a
+        movement from being inserted while the snapshot is being taken
+        (design D10).
+        """
+        statement = select(CajaDiaria).where(
+            CajaDiaria.consultorio_id == consultorio_id,
+            CajaDiaria.fecha == fecha,
+            CajaDiaria.deleted_at.is_(None),
+        )
+        if for_update:
+            statement = statement.with_for_update()
+        result = await self._session.scalars(statement)
+        return result.first()
+
+
+class MovimientoCajaRepository(BaseRepository[MovimientoCaja]):
+    """Cash movements of a register (income, expense, debt)."""
+
+    model = MovimientoCaja
+
+    async def list_by_caja(self, caja_id: uuid.UUID) -> list[MovimientoCaja]:
+        result = await self._session.scalars(
+            select(MovimientoCaja)
+            .where(
+                MovimientoCaja.caja_id == caja_id,
+                MovimientoCaja.deleted_at.is_(None),
+            )
+            .order_by(MovimientoCaja.created_at, MovimientoCaja.id)
+        )
+        return list(result)
+
+    async def get_by_cobro(self, cobro_id: uuid.UUID) -> MovimientoCaja | None:
+        """One payment yields one movement (design D7)."""
+        result = await self._session.scalars(
+            select(MovimientoCaja).where(
+                MovimientoCaja.cobro_id == cobro_id,
+                MovimientoCaja.deleted_at.is_(None),
+            )
+        )
+        return result.first()

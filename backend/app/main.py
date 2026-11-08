@@ -9,6 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import (
     auth,
     bloqueos,
+    caja,
+    cobros,
     health,
     historia_clinica,
     lista_espera,
@@ -60,6 +62,8 @@ app.include_router(profesionales.router)
 app.include_router(sillones.router)
 app.include_router(prestaciones.router)
 app.include_router(presupuestos.router)
+app.include_router(cobros.router)
+app.include_router(caja.router)
 app.include_router(bloqueos.router)
 app.include_router(pacientes.router)
 app.include_router(historia_clinica.router)
