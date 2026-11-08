@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     arca_condicion_emisor: str = "responsable_inscripto"
     arca_max_intentos: int = 5
     arca_worker_interval_seconds: int = 30
+    exportacion_max_filas: int = 50000
+    exportacion_max_bytes: int = 67108864
+    exportacion_max_intentos: int = 3
+    reportes_worker_interval_seconds: int = 30
+    exportacion_claim_timeout_seconds: int = 300
     app_base_url: str = "http://127.0.0.1:8080"
     gestion_token_ttl_minutes: int = 10080
     lista_espera_oferta_ttl_minutos: int = 30

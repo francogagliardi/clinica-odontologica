@@ -104,7 +104,7 @@ def test_upgrade_crea_tablas_columnas_e_indices(engine) -> None:
 
     async def scenario() -> None:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0013_facturacion_arca"
+        assert snapshot["version"] == "0014_reportes"
         assert snapshot["tables"] == set(Base.metadata.tables) | {
             "alembic_version"
         }
@@ -280,6 +280,7 @@ def test_c05_downgrade_y_upgrade_restaura_solo_sus_tablas(
                 "secuencias_comprobantes",
                 "liquidaciones_obras_sociales",
                 "items_liquidacion",
+                "exportaciones",
             }
             | {"alembic_version"}
         )
@@ -293,7 +294,7 @@ def test_c05_downgrade_y_upgrade_restaura_solo_sus_tablas(
         return await _snapshot(engine)
 
     restored = run(after_upgrade())
-    assert restored["version"] == "0013_facturacion_arca"
+    assert restored["version"] == "0014_reportes"
     assert {"pacientes", "obras_sociales", "turnos"} <= restored["tables"]
 
 
@@ -320,7 +321,7 @@ def test_c06_downgrade_y_upgrade_restaura_turnos(
         excludes = set(
             await _exclude_constraints(engine)
         )
-        assert snapshot["version"] == "0013_facturacion_arca"
+        assert snapshot["version"] == "0014_reportes"
         assert "turnos" in snapshot["tables"]
         assert {"ex_turnos_profesional", "ex_turnos_sillon"} <= excludes
         return snapshot
@@ -349,7 +350,7 @@ def test_c07_downgrade_y_upgrade_restaura_la_sena(
 
     async def after_upgrade() -> dict[str, object]:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0013_facturacion_arca"
+        assert snapshot["version"] == "0014_reportes"
         assert ("turnos", "sena_estado") in snapshot["columns"]
         return snapshot
 
@@ -377,7 +378,7 @@ def test_c08_downgrade_y_upgrade_restaura_mensajeria(
 
     async def after_upgrade() -> dict[str, object]:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0013_facturacion_arca"
+        assert snapshot["version"] == "0014_reportes"
         assert {"recordatorios", "mensajes_whatsapp"} <= snapshot["tables"]
         return snapshot
 
@@ -413,7 +414,7 @@ def test_c10_downgrade_y_upgrade_restaura_la_lista_de_espera(
 
     async def after_upgrade() -> dict[str, object]:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0013_facturacion_arca"
+        assert snapshot["version"] == "0014_reportes"
         assert "entradas_lista_espera" in snapshot["tables"]
         assert ("mensajes_whatsapp", "lista_espera_id") in snapshot["columns"]
         assert {
@@ -494,7 +495,7 @@ def test_c11_upgrade_crea_las_seis_tablas(engine) -> None:
 
     async def scenario() -> None:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0013_facturacion_arca"
+        assert snapshot["version"] == "0014_reportes"
         assert _TABLAS_CLINICA <= snapshot["tables"]
 
     run(scenario())
@@ -747,7 +748,7 @@ def test_c11_downgrade_limpia_las_seis_tablas(
 
     async def after_upgrade() -> None:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0013_facturacion_arca"
+        assert snapshot["version"] == "0014_reportes"
         assert _TABLAS_CLINICA <= snapshot["tables"]
         assert _TRIGGERS_CLINICA <= snapshot["triggers"]
 
@@ -800,7 +801,7 @@ def test_c12_upgrade_crea_tablas_e_indices(engine) -> None:
 
     async def scenario() -> None:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0013_facturacion_arca"
+        assert snapshot["version"] == "0014_reportes"
         assert _TABLAS_PRESUPUESTOS <= snapshot["tables"]
         indexes: dict[str, str] = snapshot["indexes"]  # type: ignore[assignment]
         paciente = indexes["ix_presupuestos_paciente_created"]
@@ -961,7 +962,7 @@ def test_c12_downgrade_limpia_solo_sus_tablas(
 
     async def after_upgrade() -> None:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0013_facturacion_arca"
+        assert snapshot["version"] == "0014_reportes"
         assert _TABLAS_PRESUPUESTOS <= snapshot["tables"]
 
     run(after_upgrade())

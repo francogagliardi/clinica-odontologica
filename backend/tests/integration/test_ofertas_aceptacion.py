@@ -90,8 +90,10 @@ def test_aceptar_crea_el_turno_con_los_recursos_retenidos(
             )
 
     ventanas = {fila.ventana for fila in run(recordatorios())}
-    assert "24h" in ventanas
-    # The 48 h reminder is only programmed when the turn is far enough away.
+    # Reminders only exist while the turn is far enough in the future; the
+    # conversion itself is what this test owns (C-09 covers the reminder math).
+    if hora(9) - ahora() > timedelta(hours=24):
+        assert "24h" in ventanas
     if hora(9) - ahora() > timedelta(hours=48):
         assert "48h" in ventanas
 

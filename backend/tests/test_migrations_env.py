@@ -37,11 +37,11 @@ def test_baseline_revision_carries_zero_domain_ddl() -> None:
 
 
 def test_single_head_revision() -> None:
-    """The revision graph has exactly one head (C-14 extends the chain)."""
+    """The revision graph has exactly one head (C-15 extends the chain)."""
     config = Config(str(_BACKEND_DIR / "alembic.ini"))
     config.set_main_option("script_location", str(_BACKEND_DIR / "alembic"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["0013_facturacion_arca"]
+    assert script.get_heads() == ["0014_reportes"]
 
 
 def test_c02_revision_chains_from_baseline() -> None:
@@ -178,3 +178,13 @@ def test_c14_revision_chains_from_c13() -> None:
     assert "items_liquidacion" in source
     assert "EXCLUDE USING gist" in source
     assert "btree_gist" in source
+
+
+def test_c15_revision_chains_from_c14() -> None:
+    """0014 adds exportations without branching the migration history."""
+    source = (
+        _BACKEND_DIR / "alembic" / "versions" / "0014_reportes.py"
+    ).read_text(encoding="utf-8")
+    assert 'down_revision: str | None = "0013_facturacion_arca"' in source
+    assert "exportaciones" in source
+    assert "uq_exportaciones_en_curso" in source

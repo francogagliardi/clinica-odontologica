@@ -256,6 +256,58 @@ El odontólogo ya puede armar un presupuesto o plan de tratamiento con una o var
 | 16 | Borrado de borrador | `DELETE /obras-sociales/liquidaciones/{id}` | 204; el período y los ítems quedan disponibles |
 | 17 | RBAC | Recepción crea/edita observaciones pero no cierra; odontólogo/auditor solo lectura; asistente 403; sin token 401 | según matriz |
 
+## C-15 — Reportes y exportación de datos
+
+### Qué se aplicó (resumen no técnico)
+
+La clínica ya puede consultar cuatro tableros de solo lectura: agenda y ocupación, ausentismo, caja y liquidaciones por obra social. Los totales se calculan en el servidor y la pantalla solo los muestra. Además, el administrador (y el odontólogo para sus propios pacientes) puede pedir una exportación: el sistema prepara un ZIP con un PDF legible, un JSON completo, un CSV por entidad y los adjuntos clínicos. El pedido responde al instante y un worker lo procesa en segundo plano; si el worker está caído, la solicitud queda pendiente y se recupera sola. El ZIP no incluye contraseñas, tokens, links de pago ni datos crudos de proveedores.
+
+### Qué no cambia todavía
+
+- No hay sistema de diseño ni estilos definitivos: es una pantalla funcional (el diseño visual es C-17).
+- No hay reportes programados, envío por email/WhatsApp ni exportación incremental/XLSX.
+- El worker `reportes` debe estar corriendo para que una exportación pase de `pendiente` a `lista`.
+- No hay purga automática de exportaciones: se conservan y se pueden volver a solicitar sin cargo.
+- La prueba visual y de aceptación final se hace sobre la página completa, no change por change.
+
+### Datos demo para probar
+
+- API/Swagger: `http://127.0.0.1:8000/docs`.
+- Pantalla: `http://127.0.0.1:8080/reportes`.
+- Administrador: `admin@clinica.test` / `demo-admin-pass-2026`.
+- Odontólogo demo: `odonto.demo@clinica.test` / `demo-odonto-pass-2026`.
+- Pacientes seed: Ana, Bruno y Carla Demo.
+- Para exportar un paciente se necesita su `id`: `GET /pacientes?apellido=Demo` o la tabla de la base demo.
+
+### Pruebas manuales
+
+| # | Qué probar | Cómo | Esperado |
+|---|---|---|---|
+| 1 | Login y cuatro tableros | Abrir `/reportes` con admin | Pide login; al entrar se ven Agenda, Ausentismo, Caja y Liquidaciones |
+| 2 | Rango y filtros | Cambiar Desde/Hasta, límite y profesional | Las cuatro consultas se refrescan con el rango elegido |
+| 3 | Detalle acotado | Rango con más de 500 turnos | La tabla muestra hasta 500 y aparece “truncado”, pero los totales siguen completos |
+| 4 | Exportar un paciente | Escribir el id de Ana y pulsar “Exportar paciente” | 202; estado `pendiente` y luego `lista` si el worker corre |
+| 5 | Exportar el consultorio | Pulsar “Exportar consultorio” como admin | 202; un odontólogo recibe 403 |
+| 6 | Worker sin Redis | `python -m app.workers reportes --once` | Toma pendientes vencidos por barrido y las deja `lista` |
+| 7 | Descarga | Pulsar “Descargar ZIP” con estado `lista` | 200 `application/zip` y archivo descargado |
+| 8 | Contenido del ZIP | Abrir el ZIP | `exportacion.pdf`, `datos.json`, `manifiesto.json`, `csv/*.csv` y `adjuntos/*` |
+| 9 | Privacidad | Buscar `hash_password`, tokens, `link_pago` y payloads en JSON/CSV | No aparecen valores; el manifiesto solo nombra las exclusiones |
+| 10 | Idempotencia | Repetir el mismo POST mientras está pendiente | Mismo `id`, un solo job |
+| 11 | Descarga antes de tiempo | Descargar una exportación `pendiente`/`generando`/`fallida` | 409; en `fallida` muestra el error |
+| 12 | RBAC reportes | Recepción: agenda/ausentismo/caja 200 y liquidaciones 403; asistente 403; auditor los cuatro 200 | Según matriz |
+| 13 | RBAC exportación | Odontólogo: paciente propio 202, paciente ajeno 403, consultorio 403 | Según matriz |
+| 14 | Aislamiento | Consultar una exportación de otro consultorio | 404 sin datos |
+| 15 | Límites | Bajar `EXPORTACION_MAX_FILAS` o `EXPORTACION_MAX_BYTES` y exportar | `fallida` con error que nombra el límite, sin ZIP parcial |
+
+### Estado de verificación
+
+- Suite backend: **1205 tests en verde de 1206**; el único fallo es el test preexistente de recordatorio 24 h de `test_ofertas_aceptacion`, dependiente de la fecha 2026-11-08 y ajeno a C-15.
+- Frontend: **37 tests en verde**, `tsc --noEmit` y `npm run build` correctos.
+- Migración 0014: ciclo `upgrade → downgrade 0013 → upgrade` con digest de esquema idéntico.
+- Smoke: cuatro reportes 200; exportaciones de paciente y consultorio `lista`; ZIP con PDF/JSON/CSV/adjuntos y sin secretos; `/reportes` 200.
+- OpenSpec: `validate --strict` válido y sin warnings.
+- Pendiente: prueba visual final en la página completa y, si se desea, levantar el stack Compose cuando el puerto 15432 esté libre.
+
 ## Prueba final de la página
 
 Cuando estén todos los changes:

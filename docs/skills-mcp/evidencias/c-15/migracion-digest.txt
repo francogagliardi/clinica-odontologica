@@ -1,0 +1,10 @@
+C-15 / 0014_reportes — ciclo de migración (base descartable clinica_c15_mig)
+alembic upgrade head -> downgrade 0013_facturacion_arca -> upgrade head
+alembic current: 0014_reportes (head)
+
+pg_dump --schema-only --no-owner --no-privileges (se normalizaron las líneas aleatorias \restrict/\unrestrict de pg_dump 17):
+
+antes:  f81fa919e31189f58120912eecab8b5e4814d13203e48d8ced0095a4aa6b4351
+después:f81fa919e31189f58120912eecab8b5e4814d13203e48d8ced0095a4aa6b4351
+
+Resultado: esquema idéntico. La base descartable fue eliminada al terminar.

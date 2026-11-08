@@ -1,0 +1,14 @@
+{
+    "id":  "57ad955a-32d1-4241-a457-b4223dd71857",
+    "consultorio_id":  "70381764-600f-4290-8223-b1d77e58e5c5",
+    "solicitado_por":  "ab5c92fd-33bc-49e3-b553-484825d1bf95",
+    "alcance":  "consultorio",
+    "paciente_id":  null,
+    "estado":  "pendiente",
+    "tamano_bytes":  null,
+    "generada_at":  null,
+    "ultimo_error":  null,
+    "intentos":  0,
+    "created_at":  "2026-11-08T21:17:11.182971Z",
+    "updated_at":  "2026-11-08T21:17:11.182971Z"
+}

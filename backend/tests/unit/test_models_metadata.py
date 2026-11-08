@@ -17,6 +17,7 @@ from app.models import (
     Consultorio,
     EntradaListaEspera,
     Evolucion,
+    Exportacion,
     HallazgoDental,
     HistoriaClinica,
     ItemLiquidacion,
@@ -76,6 +77,7 @@ EXPECTED_TABLES = {
     "secuencias_comprobantes",
     "liquidaciones_obras_sociales",
     "items_liquidacion",
+    "exportaciones",
 }
 
 
@@ -1000,3 +1002,60 @@ def test_item_liquidacion_unico_por_item_de_presupuesto() -> None:
     )
     assert "cantidad > 0" in sqltext
     assert "cobertura_item >= 0" in sqltext
+
+
+# --- C-15 report and exportation metadata ----------------------------------
+
+
+def test_exportacion_no_tiene_baja_logica_y_declara_su_ciclo() -> None:
+    columns = Exportacion.__table__.c
+    assert {
+        "consultorio_id",
+        "solicitado_por",
+        "alcance",
+        "paciente_id",
+        "estado",
+        "contenido",
+        "tamano_bytes",
+        "generada_at",
+        "intentos",
+        "proximo_intento",
+        "ultimo_error",
+        "claim_token",
+        "reclamado_at",
+        "created_at",
+        "updated_at",
+    } <= set(columns.keys())
+    assert "deleted_at" not in columns
+    assert "is_active" not in columns
+
+    sqltext = " ".join(str(check.sqltext) for check in _checks(Exportacion))
+    assert "alcance = 'paciente' AND paciente_id IS NOT NULL" in sqltext
+    assert "alcance = 'consultorio' AND paciente_id IS NULL" in sqltext
+    assert "estado = 'lista' AND contenido IS NOT NULL" in sqltext
+    assert "tamano_bytes IS NOT NULL AND tamano_bytes > 0" in sqltext
+    assert "generada_at IS NOT NULL" in sqltext
+    assert "estado <> 'fallida' OR ultimo_error IS NOT NULL" in sqltext
+    assert "intentos >= 0" in sqltext
+
+
+def test_exportacion_declara_indices_de_cola_y_job_unico() -> None:
+    indexes = _indexes()
+    assert [
+        column.name
+        for column in indexes["ix_exportaciones_estado_proximo"].columns
+    ] == ["estado", "proximo_intento"]
+    assert [
+        column.name
+        for column in indexes["ix_exportaciones_consultorio_fecha"].columns
+    ] == ["consultorio_id", "created_at"]
+
+    en_curso = indexes["uq_exportaciones_en_curso"]
+    assert en_curso.unique is True
+    where = en_curso.dialect_options["postgresql"].get("where")
+    assert str(where) == "estado IN ('pendiente','generando')"
+    expresiones = " ".join(
+        str(expression) for expression in en_curso.expressions
+    )
+    assert "consultorio_id" in expresiones
+    assert "coalesce" in expresiones.lower()

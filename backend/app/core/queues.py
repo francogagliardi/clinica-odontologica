@@ -1,7 +1,7 @@
 """Reserved Redis queue-name contract (platform/job-queues).
 
 Centralized constants only — no stub workers in C-01 by design (consumers
-arrive in C-09/C-13/C-14). Exactly these three names may exist here (R-06:
+arrive in C-09/C-13/C-14/C-15). Exactly these four names may exist here (R-06:
 Redis is queues/jobs only, never source of truth).
 """
 
@@ -12,8 +12,14 @@ import redis.asyncio as redis_async
 WHATSAPP_SEND: str = "whatsapp:send"
 RECORDATORIOS_DUE: str = "recordatorios:due"
 ARCA_EMITIR: str = "arca:emitir"
+REPORTES_GENERAR: str = "reportes:generar"
 
-ALL_QUEUES: tuple[str, ...] = (WHATSAPP_SEND, RECORDATORIOS_DUE, ARCA_EMITIR)
+ALL_QUEUES: tuple[str, ...] = (
+    WHATSAPP_SEND,
+    RECORDATORIOS_DUE,
+    ARCA_EMITIR,
+    REPORTES_GENERAR,
+)
 
 _ENQUEUE_TIMEOUT_SECONDS: float = 2.0
 

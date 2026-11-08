@@ -12,6 +12,7 @@ from app.api import (
     caja,
     cobros,
     comprobantes,
+    exportaciones,
     health,
     historia_clinica,
     liquidaciones,
@@ -26,6 +27,7 @@ from app.api import (
     publico,
     ready,
     recordatorios,
+    reportes,
     sillones,
     turnos,
     webhooks,
@@ -67,6 +69,8 @@ app.include_router(presupuestos.router)
 app.include_router(cobros.router)
 app.include_router(comprobantes.router)
 app.include_router(caja.router)
+app.include_router(reportes.router)
+app.include_router(exportaciones.router)
 app.include_router(bloqueos.router)
 app.include_router(pacientes.router)
 app.include_router(historia_clinica.router)

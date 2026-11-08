@@ -34,4 +34,11 @@ describe("SPA routes", () => {
     ).toBeTruthy();
     expect(screen.getByText(/404/)).toBeTruthy();
   });
+
+  it("renders the reports backoffice (login) at /reportes", () => {
+    renderAt("/reportes");
+    expect(
+      screen.getByRole("heading", { name: /backoffice/i }),
+    ).toBeTruthy();
+  });
 });

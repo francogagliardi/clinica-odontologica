@@ -17,8 +17,10 @@ from app.infrastructure.repositories import (
     ComprobanteEnvioRepository,
     ComprobanteRepository,
     ConsentimientoRepository,
+    ConsultaReportesRepository,
     ConsultorioRepository,
     EvolucionRepository,
+    ExportacionRepository,
     HallazgoDentalRepository,
     HistoriaClinicaRepository,
     ItemLiquidacionRepository,
@@ -85,6 +87,8 @@ class UnitOfWork:
         )
         self.liquidaciones = LiquidacionRepository(self._session)
         self.items_liquidacion = ItemLiquidacionRepository(self._session)
+        self.reportes = ConsultaReportesRepository(self._session)
+        self.exportaciones = ExportacionRepository(self._session)
         return self
 
     async def __aexit__(

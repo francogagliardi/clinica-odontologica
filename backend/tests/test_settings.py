@@ -177,6 +177,42 @@ def test_arca_config_defaults_and_overrides(monkeypatch) -> None:
     assert cambiado.arca_worker_interval_seconds == 5
 
 
+_REPORTES_ENV = (
+    "EXPORTACION_MAX_FILAS",
+    "EXPORTACION_MAX_BYTES",
+    "EXPORTACION_MAX_INTENTOS",
+    "REPORTES_WORKER_INTERVAL_SECONDS",
+    "EXPORTACION_CLAIM_TIMEOUT_SECONDS",
+)
+
+
+def test_exportacion_config_defaults_and_overrides(monkeypatch) -> None:
+    """C-15/D13: the export limits and worker cadence are env-overridable."""
+    for key, value in _full_env().items():
+        monkeypatch.setenv(key, value)
+    for key in _REPORTES_ENV:
+        monkeypatch.delenv(key, raising=False)
+
+    settings = load_settings()
+    assert settings.exportacion_max_filas == 50000
+    assert settings.exportacion_max_bytes == 67108864
+    assert settings.exportacion_max_intentos == 3
+    assert settings.reportes_worker_interval_seconds == 30
+    assert settings.exportacion_claim_timeout_seconds == 300
+
+    monkeypatch.setenv("EXPORTACION_MAX_FILAS", "12000")
+    monkeypatch.setenv("EXPORTACION_MAX_BYTES", "1048576")
+    monkeypatch.setenv("EXPORTACION_MAX_INTENTOS", "5")
+    monkeypatch.setenv("REPORTES_WORKER_INTERVAL_SECONDS", "7")
+    monkeypatch.setenv("EXPORTACION_CLAIM_TIMEOUT_SECONDS", "120")
+    cambiado = load_settings()
+    assert cambiado.exportacion_max_filas == 12000
+    assert cambiado.exportacion_max_bytes == 1048576
+    assert cambiado.exportacion_max_intentos == 5
+    assert cambiado.reportes_worker_interval_seconds == 7
+    assert cambiado.exportacion_claim_timeout_seconds == 120
+
+
 def test_arca_provider_invalido_falla_al_construir_el_cliente(
     monkeypatch,
 ) -> None:

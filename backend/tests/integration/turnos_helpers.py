@@ -114,20 +114,25 @@ async def insertar_turno_db(
     estado: str = "reservado",
     prestacion_id: uuid.UUID | None = None,
     sena_estado: str = "no_requiere",
+    es_sobreturno: bool = False,
+    color_sobreturno: str | None = None,
 ) -> uuid.UUID:
     """Direct insert used to set up conflicts without going through the API."""
     from sqlalchemy import text
 
+    if es_sobreturno and color_sobreturno is None:
+        color_sobreturno = "#FF8800"
     turno_id = uuid.uuid4()
     async with session_factory() as session, session.begin():
         await session.execute(
             text(
                 "INSERT INTO turnos "
                 "(id, consultorio_id, paciente_id, profesional_id, "
-                "sillon_id, prestacion_id, inicio, fin, estado, sena_estado) "
+                "sillon_id, prestacion_id, inicio, fin, estado, sena_estado, "
+                "es_sobreturno, color_sobreturno) "
                 "VALUES (:id, :consultorio_id, :paciente_id, "
                 ":profesional_id, :sillon_id, :prestacion_id, :inicio, :fin, "
-                ":estado, :sena_estado)"
+                ":estado, :sena_estado, :es_sobreturno, :color_sobreturno)"
             ),
             {
                 "id": turno_id,
@@ -140,6 +145,8 @@ async def insertar_turno_db(
                 "fin": fin,
                 "estado": estado,
                 "sena_estado": sena_estado,
+                "es_sobreturno": es_sobreturno,
+                "color_sobreturno": color_sobreturno,
             },
         )
     return turno_id

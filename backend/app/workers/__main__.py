@@ -18,6 +18,7 @@ from app.application.comprobantes import (
     configuracion_fiscal,
     procesar_comprobante,
 )
+from app.application.exportaciones import run_once_reportes
 from app.application.lista_espera import procesar_ofertas_vencidas
 from app.application.recordatorios import (
     procesar_entrante,
@@ -31,7 +32,7 @@ from app.infrastructure.db import create_engine, create_session_factory
 from app.infrastructure.uow import UnitOfWork
 from app.infrastructure.whatsapp import get_whatsapp_client
 
-_MODOS = ("recordatorios", "whatsapp", "arca")
+_MODOS = ("recordatorios", "whatsapp", "arca", "reportes")
 
 
 async def run_once_recordatorios(settings: Settings) -> int:
@@ -190,13 +191,19 @@ async def loop_arca(settings: Settings) -> None:  # pragma: no cover
         await asyncio.sleep(settings.arca_worker_interval_seconds)
 
 
+async def loop_reportes(settings: Settings) -> None:  # pragma: no cover
+    while True:
+        await run_once_reportes(settings)
+        await asyncio.sleep(settings.reportes_worker_interval_seconds)
+
+
 def main(argv: list[str] | None = None) -> None:
     args = argv if argv is not None else sys.argv[1:]
     modo = args[0] if args else ""
     if modo not in _MODOS:
         raise SystemExit(
             "Uso: python -m app.workers "
-            "[recordatorios|whatsapp|arca] [--once]"
+            "[recordatorios|whatsapp|arca|reportes] [--once]"
         )
     settings = load_settings()
     if "--once" in args:
@@ -204,6 +211,8 @@ def main(argv: list[str] | None = None) -> None:
             asyncio.run(run_once_recordatorios(settings))
         elif modo == "whatsapp":
             asyncio.run(run_once_whatsapp(settings, timeout=1))
+        elif modo == "reportes":
+            asyncio.run(run_once_reportes(settings, timeout=1))
         else:
             asyncio.run(run_once_arca(settings, timeout=1))
         return
@@ -211,6 +220,7 @@ def main(argv: list[str] | None = None) -> None:
         "recordatorios": loop_recordatorios,
         "whatsapp": loop_whatsapp,
         "arca": loop_arca,
+        "reportes": loop_reportes,
     }[modo]
     asyncio.run(loop(settings))
 

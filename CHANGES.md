@@ -400,12 +400,13 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux/Integ.)    │ A
 > C-15 arranca con C-06+C-13 y cierra contra C-14. C-16 es el último change.
 
 ### [C-15] `reportes-exportacion`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado 2026-11-08 (archivado en `openspec/changes/archive/`) — 1211 tests backend + 37 frontend
 - **Scope**: Reportes básicos + exportación total sin cautividad (US-041, DD-05)
-  - Endpoints `/reportes`: agenda, ausentismo, caja, liquidaciones; reportes pesados como jobs Redis en 2.º plano (DD-07c)
-  - Exportación total del paciente/consultorio en todo momento (PDF + estructurado), sin cargos ni ventanas punitivas (RN-SE-03)
-  - UI `features/reportes`: tableros + botón exportar
-  - Tests: totales cuadran contra seed, export contiene todas las entidades, job pesado no bloquea el request
+  - Endpoints `/reportes`: agenda, ausentismo, caja y liquidaciones con filtros, límites y RBAC
+  - Exportación total del paciente/consultorio en PDF + ZIP estructurado (JSON + CSV + adjuntos), sin cargos ni ventanas (RN-SE-03); job asíncrono con cola `reportes:generar` y worker
+  - UI funcional `features/reportes`: tableros + filtros + exportar/descargar; diseño visual queda para C-17
+  - Migración `0014_reportes`: tabla `exportaciones` durable
+  - Tests: totales cuadran contra seed, export contiene todas las entidades y excluye secretos, job pesado no bloquea el request
 - **Dependencias**: C-06, C-13, C-14
 - **Governance**: MEDIO
 - **Leer antes**:

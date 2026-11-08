@@ -32,6 +32,7 @@ from app.models.fiscal import (
 from app.models.liquidaciones import ItemLiquidacion, LiquidacionObraSocial
 from app.models.lista_espera import EntradaListaEspera
 from app.models.pacientes import Paciente
+from app.models.reportes import Exportacion
 from app.models.security import (
     Consultorio,
     RegistroAuditoria,
@@ -54,6 +55,7 @@ __all__ = [
     "Consultorio",
     "EntradaListaEspera",
     "Evolucion",
+    "Exportacion",
     "HallazgoDental",
     "HistoriaClinica",
     "ItemLiquidacion",

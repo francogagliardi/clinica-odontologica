@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Generic, TypeVar
 
-from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy import delete, func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +26,7 @@ from app.models import (
     Consultorio,
     EntradaListaEspera,
     Evolucion,
+    Exportacion,
     HallazgoDental,
     HistoriaClinica,
     ItemLiquidacion,
@@ -1606,3 +1607,1060 @@ class ItemLiquidacionRepository(BaseRepository[ItemLiquidacion]):
             execution_options={"synchronize_session": False},
         )
         return result.rowcount or 0
+
+
+_CENTAVO = Decimal("0.01")
+_TURNOS_ACTIVOS = ("reservado", "confirmado", "en_sala")
+
+
+class ConsultaReportesRepository:
+    """Read-only aggregates for the four reports (C-15, design D8).
+
+    Formulas (each one is a named SQL expression, not a Python loop):
+
+    - **Agenda**: counts with `COUNT(*) FILTER (WHERE estado = ...)`. Occupied
+      minutes are `SUM(EXTRACT(EPOCH FROM (fin - inicio)) / 60)` over
+      `reservado|confirmado|en_sala|atendido` rows that are **not** sobreturnos;
+      sobreturno minutes are reported separately.
+    - **Available minutes**: for every date in the local range whose
+      `EXTRACT(ISODOW) - 1` belongs to the professional's `dias_atencion`, add
+      `(hora_hasta - hora_desde)`; a professional with no matching day yields 0
+      (the application marks `sin_agenda`).
+    - **Ausentismo**: counts of `atendido|cancelado|ausente` (closed) and
+      `reservado|confirmado|en_sala` (active, never in the rates).
+    - **Caja**: approved income is `SUM(monto) FILTER (WHERE estado='aprobado')`;
+      the per-state counts include every payment; movements are grouped by
+      `tipo`/`medio`; registers are returned exactly as persisted, so an open
+      one is never re-arqueoed.
+    - **Liquidaciones**: headers whose inclusive period crosses the range
+      (`desde <= :hasta AND hasta >= :desde`); aggregates by agreement/state
+      sum the frozen headers, while per-service detail sums live
+      `items_liquidacion` rows (soft-deleted lines excluded).
+
+    `desde`/`hasta` are datetimes for `timestamptz` columns and dates for
+    `date` columns, matching `app.domain.reportes.rango_local_a_utc`.
+    """
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    def _filtro_turnos(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: datetime,
+        hasta: datetime,
+        profesional_id: uuid.UUID | None = None,
+        sillon_id: uuid.UUID | None = None,
+        estado: str | None = None,
+        estados: tuple[str, ...] | None = None,
+    ) -> list:
+        condiciones = [
+            Turno.consultorio_id == consultorio_id,
+            Turno.deleted_at.is_(None),
+            Turno.inicio >= desde,
+            Turno.inicio < hasta,
+        ]
+        if profesional_id is not None:
+            condiciones.append(Turno.profesional_id == profesional_id)
+        if sillon_id is not None:
+            condiciones.append(Turno.sillon_id == sillon_id)
+        if estado is not None:
+            condiciones.append(Turno.estado == estado)
+        elif estados is not None:
+            condiciones.append(Turno.estado.in_(estados))
+        return condiciones
+
+    async def agenda_por_estado(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: datetime,
+        hasta: datetime,
+        profesional_id: uuid.UUID | None = None,
+        sillon_id: uuid.UUID | None = None,
+        estado: str | None = None,
+    ) -> dict[str, int]:
+        statement = (
+            select(Turno.estado, func.count().label("cantidad"))
+            .where(
+                *self._filtro_turnos(
+                    consultorio_id,
+                    desde=desde,
+                    hasta=hasta,
+                    profesional_id=profesional_id,
+                    sillon_id=sillon_id,
+                    estado=estado,
+                )
+            )
+            .group_by(Turno.estado)
+            .order_by(Turno.estado)
+        )
+        rows = (await self._session.execute(statement)).all()
+        return {estado_fila: int(cantidad) for estado_fila, cantidad in rows}
+
+    async def agenda_por_profesional(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: datetime,
+        hasta: datetime,
+        profesional_id: uuid.UUID | None = None,
+        sillon_id: uuid.UUID | None = None,
+        estado: str | None = None,
+    ) -> list[dict[str, object]]:
+        statement = (
+            select(
+                Turno.profesional_id,
+                func.count().label("cantidad"),
+            )
+            .where(
+                *self._filtro_turnos(
+                    consultorio_id,
+                    desde=desde,
+                    hasta=hasta,
+                    profesional_id=profesional_id,
+                    sillon_id=sillon_id,
+                    estado=estado,
+                )
+            )
+            .group_by(Turno.profesional_id)
+            .order_by(Turno.profesional_id)
+        )
+        rows = (await self._session.execute(statement)).all()
+        return [
+            {"profesional_id": profesional, "cantidad": int(cantidad)}
+            for profesional, cantidad in rows
+        ]
+
+    async def agenda_por_sillon(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: datetime,
+        hasta: datetime,
+        profesional_id: uuid.UUID | None = None,
+        sillon_id: uuid.UUID | None = None,
+        estado: str | None = None,
+    ) -> list[dict[str, object]]:
+        statement = (
+            select(Turno.sillon_id, func.count().label("cantidad"))
+            .where(
+                *self._filtro_turnos(
+                    consultorio_id,
+                    desde=desde,
+                    hasta=hasta,
+                    profesional_id=profesional_id,
+                    sillon_id=sillon_id,
+                    estado=estado,
+                )
+            )
+            .group_by(Turno.sillon_id)
+            .order_by(Turno.sillon_id)
+        )
+        rows = (await self._session.execute(statement)).all()
+        return [
+            {"sillon_id": sillon, "cantidad": int(cantidad)}
+            for sillon, cantidad in rows
+        ]
+
+    async def turnos_detalle(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: datetime,
+        hasta: datetime,
+        profesional_id: uuid.UUID | None = None,
+        sillon_id: uuid.UUID | None = None,
+        estado: str | None = None,
+        estados: tuple[str, ...] | None = None,
+        limite: int | None = None,
+    ) -> list[Turno]:
+        """Bounded detail ordered by `inicio, id` (D8 stable order)."""
+        statement = (
+            select(Turno)
+            .where(
+                *self._filtro_turnos(
+                    consultorio_id,
+                    desde=desde,
+                    hasta=hasta,
+                    profesional_id=profesional_id,
+                    sillon_id=sillon_id,
+                    estado=estado,
+                    estados=estados,
+                )
+            )
+            .order_by(Turno.inicio, Turno.id)
+        )
+        if limite is not None:
+            statement = statement.limit(limite)
+        result = await self._session.scalars(statement)
+        return list(result)
+
+    async def contar_turnos(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: datetime,
+        hasta: datetime,
+        profesional_id: uuid.UUID | None = None,
+        sillon_id: uuid.UUID | None = None,
+        estado: str | None = None,
+        estados: tuple[str, ...] | None = None,
+    ) -> int:
+        statement = (
+            select(func.count())
+            .select_from(Turno)
+            .where(
+                *self._filtro_turnos(
+                    consultorio_id,
+                    desde=desde,
+                    hasta=hasta,
+                    profesional_id=profesional_id,
+                    sillon_id=sillon_id,
+                    estado=estado,
+                    estados=estados,
+                )
+            )
+        )
+        return int(await self._session.scalar(statement) or 0)
+
+    async def minutos_disponibles_por_profesional(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: date,
+        hasta: date,
+        profesional_id: uuid.UUID | None = None,
+    ) -> dict[uuid.UUID, int]:
+        """Configured minutes per professional for the local date range."""
+        condicion_profesional = ""
+        parametros: dict[str, object] = {
+            "consultorio_id": consultorio_id,
+            "desde": desde,
+            "hasta": hasta,
+        }
+        if profesional_id is not None:
+            condicion_profesional = "AND p.id = :profesional_id"
+            parametros["profesional_id"] = profesional_id
+        statement = text(
+            "SELECT p.id AS profesional_id, "
+            "COALESCE(SUM("
+            "EXTRACT(EPOCH FROM (p.hora_hasta - p.hora_desde)) / 60"
+            ") FILTER (WHERE (EXTRACT(ISODOW FROM f.fecha)::int - 1) "
+            "= ANY(p.dias_atencion)), 0)::int AS minutos "
+            "FROM profesionales p "
+            "CROSS JOIN generate_series("
+            "CAST(:desde AS date), CAST(:hasta AS date), interval '1 day'"
+            ") AS f(fecha) "
+            "WHERE p.consultorio_id = :consultorio_id "
+            "AND p.deleted_at IS NULL "
+            f"{condicion_profesional} "
+            "GROUP BY p.id ORDER BY p.id"
+        )
+        rows = (await self._session.execute(statement, parametros)).all()
+        return {
+            profesional: int(minutos) for profesional, minutos in rows
+        }
+
+    async def _minutos_por_profesional(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: datetime,
+        hasta: datetime,
+        sobreturno: bool,
+        profesional_id: uuid.UUID | None = None,
+        estado: str | None = None,
+    ) -> dict[uuid.UUID, int]:
+        minutos = (
+            func.extract("epoch", Turno.fin - Turno.inicio) / 60
+        )
+        condiciones = [
+            Turno.consultorio_id == consultorio_id,
+            Turno.deleted_at.is_(None),
+            Turno.estado.in_(tuple(ESTADOS_ACTIVOS)),
+            Turno.es_sobreturno.is_(sobreturno),
+            Turno.inicio >= desde,
+            Turno.inicio < hasta,
+        ]
+        if profesional_id is not None:
+            condiciones.append(Turno.profesional_id == profesional_id)
+        if estado is not None:
+            condiciones.append(Turno.estado == estado)
+        statement = (
+            select(
+                Turno.profesional_id,
+                func.coalesce(func.sum(minutos), 0).label("minutos"),
+            )
+            .where(*condiciones)
+            .group_by(Turno.profesional_id)
+            .order_by(Turno.profesional_id)
+        )
+        rows = (await self._session.execute(statement)).all()
+        return {
+            profesional: int(Decimal(minutos).quantize(Decimal("1")))
+            for profesional, minutos in rows
+        }
+
+    async def minutos_ocupados_por_profesional(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: datetime,
+        hasta: datetime,
+        profesional_id: uuid.UUID | None = None,
+        estado: str | None = None,
+    ) -> dict[uuid.UUID, int]:
+        """Active, non-sobreturno minutes per professional (D8)."""
+        return await self._minutos_por_profesional(
+            consultorio_id,
+            desde=desde,
+            hasta=hasta,
+            sobreturno=False,
+            profesional_id=profesional_id,
+            estado=estado,
+        )
+
+    async def minutos_sobreturno_por_profesional(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: datetime,
+        hasta: datetime,
+        profesional_id: uuid.UUID | None = None,
+        estado: str | None = None,
+    ) -> dict[uuid.UUID, int]:
+        """Sobreturno minutes, reported apart so they never inflate occupation."""
+        return await self._minutos_por_profesional(
+            consultorio_id,
+            desde=desde,
+            hasta=hasta,
+            sobreturno=True,
+            profesional_id=profesional_id,
+            estado=estado,
+        )
+
+    async def resumen_ausentismo(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: datetime,
+        hasta: datetime,
+        profesional_id: uuid.UUID | None = None,
+        sillon_id: uuid.UUID | None = None,
+    ) -> dict[str, int]:
+        """Closed counts plus the active appointments kept outside the rates."""
+        statement = (
+            select(
+                func.count()
+                .filter(Turno.estado == "atendido")
+                .label("atendidos"),
+                func.count()
+                .filter(Turno.estado == "cancelado")
+                .label("cancelados"),
+                func.count()
+                .filter(Turno.estado == "ausente")
+                .label("ausentes"),
+                func.count()
+                .filter(Turno.estado.in_(tuple(_TURNOS_ACTIVOS)))
+                .label("turnos_activos"),
+            )
+            .where(
+                *self._filtro_turnos(
+                    consultorio_id,
+                    desde=desde,
+                    hasta=hasta,
+                    profesional_id=profesional_id,
+                    sillon_id=sillon_id,
+                )
+            )
+        )
+        row = (await self._session.execute(statement)).one()
+        return {
+            "atendidos": int(row.atendidos),
+            "cancelados": int(row.cancelados),
+            "ausentes": int(row.ausentes),
+            "turnos_activos": int(row.turnos_activos),
+        }
+
+    async def ausentismo_por_profesional(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: datetime,
+        hasta: datetime,
+        profesional_id: uuid.UUID | None = None,
+        sillon_id: uuid.UUID | None = None,
+    ) -> list[dict[str, object]]:
+        """Closed/active counts per professional (D8, same filter as the total)."""
+        statement = (
+            select(
+                Turno.profesional_id,
+                func.count()
+                .filter(Turno.estado == "atendido")
+                .label("atendidos"),
+                func.count()
+                .filter(Turno.estado == "cancelado")
+                .label("cancelados"),
+                func.count()
+                .filter(Turno.estado == "ausente")
+                .label("ausentes"),
+                func.count()
+                .filter(Turno.estado.in_(tuple(_TURNOS_ACTIVOS)))
+                .label("turnos_activos"),
+            )
+            .where(
+                *self._filtro_turnos(
+                    consultorio_id,
+                    desde=desde,
+                    hasta=hasta,
+                    profesional_id=profesional_id,
+                    sillon_id=sillon_id,
+                )
+            )
+            .group_by(Turno.profesional_id)
+            .order_by(Turno.profesional_id)
+        )
+        rows = (await self._session.execute(statement)).all()
+        return [
+            {
+                "profesional_id": profesional,
+                "atendidos": int(atendidos),
+                "cancelados": int(cancelados),
+                "ausentes": int(ausentes),
+                "turnos_activos": int(activos),
+            }
+            for profesional, atendidos, cancelados, ausentes, activos in rows
+        ]
+
+    def _statement_cobros(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: date,
+        hasta: date,
+        profesional_id: uuid.UUID | None = None,
+        medio: str | None = None,
+        estado: str | None = None,
+    ):
+        condiciones = [
+            Cobro.consultorio_id == consultorio_id,
+            Cobro.deleted_at.is_(None),
+            Cobro.fecha_operacion >= desde,
+            Cobro.fecha_operacion <= hasta,
+        ]
+        if medio is not None:
+            condiciones.append(Cobro.medio == medio)
+        if estado is not None:
+            condiciones.append(Cobro.estado == estado)
+        statement = select(Cobro)
+        if profesional_id is not None:
+            statement = statement.outerjoin(
+                Turno, Cobro.turno_id == Turno.id
+            ).outerjoin(
+                Presupuesto, Cobro.presupuesto_id == Presupuesto.id
+            )
+            condiciones.append(
+                or_(
+                    Turno.profesional_id == profesional_id,
+                    Presupuesto.profesional_id == profesional_id,
+                )
+            )
+        return statement.where(*condiciones)
+
+    async def totales_aprobados_por_medio(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: date,
+        hasta: date,
+        profesional_id: uuid.UUID | None = None,
+        medio: str | None = None,
+        estado: str | None = None,
+    ) -> dict[str, Decimal]:
+        """Approved money per method; never counts pending/rejected/refunded."""
+        statement = (
+            self._statement_cobros(
+                consultorio_id,
+                desde=desde,
+                hasta=hasta,
+                profesional_id=profesional_id,
+                medio=medio,
+                estado=estado,
+            )
+            .with_only_columns(
+                Cobro.medio,
+                func.coalesce(
+                    func.sum(Cobro.monto).filter(
+                        Cobro.estado == "aprobado"
+                    ),
+                    0,
+                ).label("total"),
+            )
+            .group_by(Cobro.medio)
+            .order_by(Cobro.medio)
+        )
+        rows = (await self._session.execute(statement)).all()
+        totales = {
+            "efectivo": Decimal("0.00"),
+            "mercadopago": Decimal("0.00"),
+        }
+        for medio_fila, total in rows:
+            totales[medio_fila] = Decimal(total or 0).quantize(_CENTAVO)
+        return totales
+
+    async def conteo_cobros_por_estado(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: date,
+        hasta: date,
+        profesional_id: uuid.UUID | None = None,
+        medio: str | None = None,
+        estado: str | None = None,
+    ) -> dict[str, int]:
+        """Every payment of the range counted by state (D8)."""
+        statement = (
+            self._statement_cobros(
+                consultorio_id,
+                desde=desde,
+                hasta=hasta,
+                profesional_id=profesional_id,
+                medio=medio,
+                estado=estado,
+            )
+            .with_only_columns(
+                Cobro.estado, func.count().label("cantidad")
+            )
+            .group_by(Cobro.estado)
+            .order_by(Cobro.estado)
+        )
+        rows = (await self._session.execute(statement)).all()
+        return {estado_fila: int(cantidad) for estado_fila, cantidad in rows}
+
+    async def cobros_detalle(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: date,
+        hasta: date,
+        profesional_id: uuid.UUID | None = None,
+        medio: str | None = None,
+        estado: str | None = None,
+        limite: int | None = None,
+    ) -> list[Cobro]:
+        """Bounded payment detail ordered by `fecha_operacion, id` (D8)."""
+        statement = (
+            self._statement_cobros(
+                consultorio_id,
+                desde=desde,
+                hasta=hasta,
+                profesional_id=profesional_id,
+                medio=medio,
+                estado=estado,
+            )
+            .order_by(Cobro.fecha_operacion, Cobro.id)
+        )
+        if limite is not None:
+            statement = statement.limit(limite)
+        result = await self._session.scalars(statement)
+        return list(result)
+
+    async def contar_cobros(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: date,
+        hasta: date,
+        profesional_id: uuid.UUID | None = None,
+        medio: str | None = None,
+        estado: str | None = None,
+    ) -> int:
+        statement = (
+            self._statement_cobros(
+                consultorio_id,
+                desde=desde,
+                hasta=hasta,
+                profesional_id=profesional_id,
+                medio=medio,
+                estado=estado,
+            )
+            .with_only_columns(func.count())
+        )
+        return int(await self._session.scalar(statement) or 0)
+
+    async def movimientos_por_tipo(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: date,
+        hasta: date,
+    ) -> list[dict[str, object]]:
+        """Expenses and debts are reported apart from collected income."""
+        statement = (
+            select(
+                MovimientoCaja.tipo,
+                MovimientoCaja.medio,
+                func.count().label("cantidad"),
+                func.coalesce(
+                    func.sum(MovimientoCaja.monto), 0
+                ).label("total"),
+            )
+            .join(
+                CajaDiaria,
+                CajaDiaria.id == MovimientoCaja.caja_id,
+            )
+            .where(
+                CajaDiaria.consultorio_id == consultorio_id,
+                CajaDiaria.deleted_at.is_(None),
+                CajaDiaria.fecha >= desde,
+                CajaDiaria.fecha <= hasta,
+                MovimientoCaja.deleted_at.is_(None),
+            )
+            .group_by(MovimientoCaja.tipo, MovimientoCaja.medio)
+            .order_by(MovimientoCaja.tipo, MovimientoCaja.medio)
+        )
+        rows = (await self._session.execute(statement)).all()
+        return [
+            {
+                "tipo": tipo,
+                "medio": medio,
+                "cantidad": int(cantidad),
+                "total": Decimal(total or 0).quantize(_CENTAVO),
+            }
+            for tipo, medio, cantidad, total in rows
+        ]
+
+    async def cajas_del_rango(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: date,
+        hasta: date,
+    ) -> list[CajaDiaria]:
+        """Registers exactly as persisted: an open one is never re-arqueoed."""
+        result = await self._session.scalars(
+            select(CajaDiaria)
+            .where(
+                CajaDiaria.consultorio_id == consultorio_id,
+                CajaDiaria.deleted_at.is_(None),
+                CajaDiaria.fecha >= desde,
+                CajaDiaria.fecha <= hasta,
+            )
+            .order_by(CajaDiaria.fecha, CajaDiaria.id)
+        )
+        return list(result)
+
+    def _filtro_liquidaciones(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: date,
+        hasta: date,
+        obra_social_id: uuid.UUID | None = None,
+        estado: str | None = None,
+    ) -> list:
+        condiciones = [
+            LiquidacionObraSocial.consultorio_id == consultorio_id,
+            LiquidacionObraSocial.deleted_at.is_(None),
+            LiquidacionObraSocial.desde <= hasta,
+            LiquidacionObraSocial.hasta >= desde,
+        ]
+        if obra_social_id is not None:
+            condiciones.append(
+                LiquidacionObraSocial.obra_social_id == obra_social_id
+            )
+        if estado is not None:
+            condiciones.append(LiquidacionObraSocial.estado == estado)
+        return condiciones
+
+    async def liquidaciones_del_periodo(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: date,
+        hasta: date,
+        obra_social_id: uuid.UUID | None = None,
+        estado: str | None = None,
+        limite: int | None = None,
+    ) -> list[LiquidacionObraSocial]:
+        """Headers whose inclusive period crosses the range (not containment)."""
+        statement = (
+            select(LiquidacionObraSocial)
+            .where(
+                *self._filtro_liquidaciones(
+                    consultorio_id,
+                    desde=desde,
+                    hasta=hasta,
+                    obra_social_id=obra_social_id,
+                    estado=estado,
+                )
+            )
+            .order_by(
+                LiquidacionObraSocial.desde,
+                LiquidacionObraSocial.id,
+            )
+        )
+        if limite is not None:
+            statement = statement.limit(limite)
+        result = await self._session.scalars(statement)
+        return list(result)
+
+    async def contar_liquidaciones_del_periodo(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: date,
+        hasta: date,
+        obra_social_id: uuid.UUID | None = None,
+        estado: str | None = None,
+    ) -> int:
+        statement = (
+            select(func.count())
+            .select_from(LiquidacionObraSocial)
+            .where(
+                *self._filtro_liquidaciones(
+                    consultorio_id,
+                    desde=desde,
+                    hasta=hasta,
+                    obra_social_id=obra_social_id,
+                    estado=estado,
+                )
+            )
+        )
+        return int(await self._session.scalar(statement) or 0)
+
+    async def liquidaciones_por_obra_estado(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: date,
+        hasta: date,
+        obra_social_id: uuid.UUID | None = None,
+        estado: str | None = None,
+    ) -> list[dict[str, object]]:
+        """Frozen header totals grouped by agreement and state (D8)."""
+        statement = (
+            select(
+                LiquidacionObraSocial.obra_social_id,
+                LiquidacionObraSocial.estado,
+                func.count().label("cantidad_liquidaciones"),
+                func.coalesce(
+                    func.sum(LiquidacionObraSocial.total_cobertura), 0
+                ).label("total_cobertura"),
+                func.coalesce(
+                    func.sum(LiquidacionObraSocial.cantidad_practicas), 0
+                ).label("cantidad_practicas"),
+            )
+            .where(
+                *self._filtro_liquidaciones(
+                    consultorio_id,
+                    desde=desde,
+                    hasta=hasta,
+                    obra_social_id=obra_social_id,
+                    estado=estado,
+                )
+            )
+            .group_by(
+                LiquidacionObraSocial.obra_social_id,
+                LiquidacionObraSocial.estado,
+            )
+            .order_by(
+                LiquidacionObraSocial.obra_social_id,
+                LiquidacionObraSocial.estado,
+            )
+        )
+        rows = (await self._session.execute(statement)).all()
+        return [
+            {
+                "obra_social_id": obra,
+                "estado": estado_fila,
+                "cantidad_liquidaciones": int(cantidad),
+                "total_cobertura": Decimal(total or 0).quantize(
+                    _CENTAVO
+                ),
+                "cantidad_practicas": int(practicas),
+            }
+            for obra, estado_fila, cantidad, total, practicas in rows
+        ]
+
+    async def practicas_por_prestacion(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        desde: date,
+        hasta: date,
+        obra_social_id: uuid.UUID | None = None,
+        estado: str | None = None,
+    ) -> list[dict[str, object]]:
+        """Live settlement lines grouped by service code (D8)."""
+        statement = (
+            select(
+                ItemLiquidacion.prestacion_codigo,
+                func.coalesce(
+                    func.sum(ItemLiquidacion.cantidad), 0
+                ).label("cantidad"),
+                func.coalesce(
+                    func.sum(ItemLiquidacion.cobertura_item), 0
+                ).label("cobertura"),
+            )
+            .join(
+                LiquidacionObraSocial,
+                LiquidacionObraSocial.id
+                == ItemLiquidacion.liquidacion_id,
+            )
+            .where(
+                *self._filtro_liquidaciones(
+                    consultorio_id,
+                    desde=desde,
+                    hasta=hasta,
+                    obra_social_id=obra_social_id,
+                    estado=estado,
+                ),
+                ItemLiquidacion.deleted_at.is_(None),
+            )
+            .group_by(ItemLiquidacion.prestacion_codigo)
+            .order_by(ItemLiquidacion.prestacion_codigo)
+        )
+        rows = (await self._session.execute(statement)).all()
+        return [
+            {
+                "prestacion_codigo": codigo,
+                "cantidad": int(cantidad),
+                "cobertura": Decimal(cobertura or 0).quantize(
+                    _CENTAVO
+                ),
+            }
+            for codigo, cantidad, cobertura in rows
+        ]
+
+
+class ExportacionRepository(BaseRepository[Exportacion]):
+    """Durable exportation job: the row decides, Redis only accelerates (D3)."""
+
+    model = Exportacion
+
+    async def list_filtrado(
+        self,
+        consultorio_id: uuid.UUID,
+        *,
+        estado: str | None = None,
+        alcance: str | None = None,
+        solicitado_por: uuid.UUID | None = None,
+    ) -> list[Exportacion]:
+        statement = select(Exportacion).where(
+            Exportacion.consultorio_id == consultorio_id
+        )
+        if estado is not None:
+            statement = statement.where(Exportacion.estado == estado)
+        if alcance is not None:
+            statement = statement.where(Exportacion.alcance == alcance)
+        if solicitado_por is not None:
+            statement = statement.where(
+                Exportacion.solicitado_por == solicitado_por
+            )
+        statement = statement.order_by(
+            Exportacion.created_at.desc(), Exportacion.id.desc()
+        )
+        result = await self._session.scalars(statement)
+        return list(result)
+
+    async def get_en_curso(
+        self,
+        *,
+        consultorio_id: uuid.UUID,
+        solicitado_por: uuid.UUID,
+        alcance: str,
+        paciente_id: uuid.UUID | None,
+    ) -> Exportacion | None:
+        """Idempotency read for D7: the same job while it is still in progress."""
+        statement = select(Exportacion).where(
+            Exportacion.consultorio_id == consultorio_id,
+            Exportacion.solicitado_por == solicitado_por,
+            Exportacion.alcance == alcance,
+            Exportacion.estado.in_(("pendiente", "generando")),
+        )
+        if paciente_id is None:
+            statement = statement.where(Exportacion.paciente_id.is_(None))
+        else:
+            statement = statement.where(
+                Exportacion.paciente_id == paciente_id
+            )
+        result = await self._session.scalars(
+            statement.order_by(Exportacion.created_at, Exportacion.id)
+        )
+        return result.first()
+
+    async def reclamar(
+        self,
+        exportacion_id: uuid.UUID,
+        *,
+        token: uuid.UUID,
+        ahora: datetime,
+        claim_timeout_seconds: int = 300,
+    ) -> Exportacion | None:
+        """Atomically take one job; None means another worker owns it (D3).
+
+        The claim expires after `claim_timeout_seconds`, so a dead process does
+        not hide the job. Generation happens outside this transaction.
+        """
+        limite_claim = ahora - timedelta(seconds=claim_timeout_seconds)
+        statement = (
+            update(Exportacion)
+            .where(
+                Exportacion.id == exportacion_id,
+                Exportacion.estado == "pendiente",
+                or_(
+                    Exportacion.proximo_intento.is_(None),
+                    Exportacion.proximo_intento <= ahora,
+                ),
+                or_(
+                    Exportacion.reclamado_at.is_(None),
+                    Exportacion.reclamado_at < limite_claim,
+                ),
+            )
+            .values(
+                claim_token=token,
+                reclamado_at=ahora,
+                estado="generando",
+                updated_at=func.now(),
+            )
+            .returning(Exportacion)
+            .execution_options(
+                synchronize_session=False, populate_existing=True
+            )
+        )
+        result = await self._session.scalars(statement)
+        return result.first()
+
+    async def marcar_lista(
+        self,
+        exportacion_id: uuid.UUID,
+        *,
+        token: uuid.UUID,
+        contenido: bytes,
+        ahora: datetime,
+    ) -> Exportacion | None:
+        """Persist the artifact only while this worker still owns the claim (D3)."""
+        statement = (
+            update(Exportacion)
+            .where(
+                Exportacion.id == exportacion_id,
+                Exportacion.estado == "generando",
+                Exportacion.claim_token == token,
+            )
+            .values(
+                estado="lista",
+                contenido=contenido,
+                tamano_bytes=len(contenido),
+                generada_at=ahora,
+                proximo_intento=None,
+                ultimo_error=None,
+                claim_token=None,
+                reclamado_at=None,
+                updated_at=func.now(),
+            )
+            .returning(Exportacion)
+            .execution_options(
+                synchronize_session=False, populate_existing=True
+            )
+        )
+        result = await self._session.scalars(statement)
+        return result.first()
+
+    async def marcar_fallida(
+        self,
+        exportacion_id: uuid.UUID,
+        *,
+        token: uuid.UUID,
+        error: str,
+        intentos: int | None = None,
+    ) -> Exportacion | None:
+        """Terminal failure; optional `intentos` records the exhausted attempt."""
+        valores = {
+            "estado": "fallida",
+            "ultimo_error": error[:1000],
+            "proximo_intento": None,
+            "claim_token": None,
+            "reclamado_at": None,
+            "updated_at": func.now(),
+        }
+        if intentos is not None:
+            valores["intentos"] = intentos
+        statement = (
+            update(Exportacion)
+            .where(
+                Exportacion.id == exportacion_id,
+                Exportacion.estado == "generando",
+                Exportacion.claim_token == token,
+            )
+            .values(**valores)
+            .returning(Exportacion)
+            .execution_options(
+                synchronize_session=False, populate_existing=True
+            )
+        )
+        result = await self._session.scalars(statement)
+        return result.first()
+
+    async def registrar_reintento(
+        self,
+        exportacion_id: uuid.UUID,
+        *,
+        token: uuid.UUID,
+        proximo_intento: datetime,
+        error: str,
+    ) -> Exportacion | None:
+        """Transient failure: increment attempts, schedule backoff and release."""
+        statement = (
+            update(Exportacion)
+            .where(
+                Exportacion.id == exportacion_id,
+                Exportacion.estado == "generando",
+                Exportacion.claim_token == token,
+            )
+            .values(
+                estado="pendiente",
+                intentos=Exportacion.intentos + 1,
+                proximo_intento=proximo_intento,
+                ultimo_error=error[:1000],
+                claim_token=None,
+                reclamado_at=None,
+                updated_at=func.now(),
+            )
+            .returning(Exportacion)
+            .execution_options(
+                synchronize_session=False, populate_existing=True
+            )
+        )
+        result = await self._session.scalars(statement)
+        return result.first()
+
+    async def list_pendientes_vencidos(
+        self,
+        ahora: datetime,
+        *,
+        limite: int = 50,
+        claim_timeout_seconds: int = 300,
+    ) -> list[Exportacion]:
+        """Due pending rows whose claim (if any) already expired (D3)."""
+        limite_claim = ahora - timedelta(seconds=claim_timeout_seconds)
+        statement = (
+            select(Exportacion)
+            .where(
+                Exportacion.estado == "pendiente",
+                or_(
+                    Exportacion.proximo_intento.is_(None),
+                    Exportacion.proximo_intento <= ahora,
+                ),
+                or_(
+                    Exportacion.reclamado_at.is_(None),
+                    Exportacion.reclamado_at < limite_claim,
+                ),
+            )
+            .order_by(Exportacion.created_at, Exportacion.id)
+            .limit(limite)
+        )
+        result = await self._session.scalars(statement)
+        return list(result)

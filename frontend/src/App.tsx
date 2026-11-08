@@ -2,6 +2,7 @@ import { HomePage } from "./pages/HomePage";
 import { AgendaPage } from "./pages/AgendaPage";
 import { GestionTurnoPage } from "./pages/GestionTurnoPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { ReportesPage } from "./pages/ReportesPage";
 import { ReservaPage } from "./pages/ReservaPage";
 
 const GESTION_PREFIX = "/reservar/gestion/";
@@ -14,6 +15,9 @@ export function App(): React.JSX.Element {
   }
   if (pathname === "/agenda") {
     return <AgendaPage />;
+  }
+  if (pathname === "/reportes") {
+    return <ReportesPage />;
   }
   if (pathname === "/reservar") {
     return <ReservaPage />;

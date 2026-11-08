@@ -1,0 +1,8 @@
+smoke-paciente.zip: bytes=8747 sha256=cf1d980881d5483c6d02655b256b807e862d66fcb71ebfbbbba09e71a3c7d33f
+  entries=27 pdf=%PDF- csv=24 total_filas=2
+  datos_claves=24 exclusiones=15
+  hash real ausente: true; token_publico y link_pago ausentes fuera del manifiesto: true
+smoke-consultorio.zip: bytes=11303 sha256=6ad89d490a296c6f0299ba181d4a8261fe6659097d470b6680f699567331bfce
+  entries=27 pdf=%PDF- csv=24 total_filas=15
+  datos_claves=24 exclusiones=15
+  hash real ausente: true; token_publico y link_pago ausentes fuera del manifiesto: true
