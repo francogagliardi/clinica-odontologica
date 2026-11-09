@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { ApiError, describeFailure } from "../shared/api/client";
 import { LoginForm } from "../features/auth/LoginForm";
-import { logout, useSession } from "../features/auth/session";
+import { useSession } from "../features/auth/session";
 import {
   fetchBloqueos,
   fetchProfesionales,
@@ -26,6 +26,13 @@ import {
   type Vista,
 } from "../features/agenda/calendar";
 import { puedeReprogramar } from "../features/agenda/permissions";
+import { Button } from "../shared/ui/Button";
+import { EmptyState } from "../shared/ui/EmptyState";
+import { ErrorBanner } from "../shared/ui/ErrorBanner";
+import { Input } from "../shared/ui/Input";
+import { Loading } from "../shared/ui/Loading";
+import { PageHeader } from "../shared/ui/PageHeader";
+import { Select } from "../shared/ui/Select";
 
 export function AgendaPage(): React.JSX.Element {
   const session = useSession();
@@ -110,104 +117,114 @@ export function AgendaPage(): React.JSX.Element {
 
   return (
     <main>
-      <h1>Agenda</h1>
-      <button type="button" onClick={logout}>
-        Salir
-      </button>
+      <PageHeader
+        title="Agenda"
+        description="Turnos y bloqueos por profesional y sillón."
+      />
 
-      <div className="agenda-toolbar">
-        <label>
-          Vista
-          <select
-            value={vista}
-            onChange={(event) => setVista(event.target.value as Vista)}
-          >
-            <option value="dia">Día</option>
-            <option value="semana">Semana</option>
-            <option value="mes">Mes</option>
-          </select>
-        </label>
-        <label>
-          Fecha
-          <input
-            type="date"
-            value={fecha}
-            onChange={(event) => setFecha(event.target.value)}
-          />
-        </label>
-        <button type="button" onClick={() => setFecha(mover(vista, fecha, -1))}>
+      <div className="agenda-toolbar" role="group" aria-label="Filtros de agenda">
+        <Select
+          label="Vista"
+          value={vista}
+          onChange={(event) => setVista(event.target.value as Vista)}
+        >
+          <option value="dia">Día</option>
+          <option value="semana">Semana</option>
+          <option value="mes">Mes</option>
+        </Select>
+        <Input
+          label="Fecha"
+          type="date"
+          value={fecha}
+          onChange={(event) => setFecha(event.target.value)}
+        />
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => setFecha(mover(vista, fecha, -1))}
+        >
           Anterior
-        </button>
-        <button type="button" onClick={() => setFecha(mover(vista, fecha, 1))}>
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => setFecha(mover(vista, fecha, 1))}
+        >
           Siguiente
-        </button>
-        <label>
-          Profesional
-          <select
-            value={profesionalId}
-            onChange={(event) => setProfesionalId(event.target.value)}
-          >
-            <option value="">Todos</option>
-            {profesionales.map((profesional) => (
-              <option key={profesional.id} value={profesional.id}>
-                {profesional.matricula}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Sillón
-          <select
-            value={sillonId}
-            onChange={(event) => setSillonId(event.target.value)}
-          >
-            <option value="">Todos</option>
-            {sillones.map((sillon) => (
-              <option key={sillon.id} value={sillon.id}>
-                {sillon.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
+        </Button>
+        <Select
+          label="Profesional"
+          value={profesionalId}
+          onChange={(event) => setProfesionalId(event.target.value)}
+        >
+          <option value="">Todos</option>
+          {profesionales.map((profesional) => (
+            <option key={profesional.id} value={profesional.id}>
+              {profesional.matricula}
+            </option>
+          ))}
+        </Select>
+        <Select
+          label="Sillón"
+          value={sillonId}
+          onChange={(event) => setSillonId(event.target.value)}
+        >
+          <option value="">Todos</option>
+          {sillones.map((sillon) => (
+            <option key={sillon.id} value={sillon.id}>
+              {sillon.nombre}
+            </option>
+          ))}
+        </Select>
       </div>
 
-      {error !== null ? <p role="alert">{error}</p> : null}
-      {cargando ? <p>Cargando…</p> : null}
+      {error !== null ? <ErrorBanner message={error} /> : null}
+      {cargando ? <Loading /> : null}
       {!cargando && turnos.length === 0 && error === null ? (
-        <p>Sin turnos para este rango.</p>
+        <EmptyState
+          title="Sin turnos para este rango."
+          description="Probá con otra fecha, profesional o sillón."
+        />
       ) : null}
 
-      {vista === "dia" ? (
-        <AgendaDay
-          fecha={fecha}
-          turnos={turnos}
-          bloqueos={bloqueosVisibles}
-          esReprogramable={esReprogramable}
-          onDragStart={() => undefined}
-          onDrop={(turno, inicio) => void reprogramar(turno, inicio)}
-        />
-      ) : null}
-      {vista === "semana" ? (
-        <AgendaWeek
-          desde={desde}
-          hasta={hasta}
-          turnos={turnos}
-          bloqueos={bloqueosVisibles}
-          esReprogramable={esReprogramable}
-          onDragStart={() => undefined}
-          onDrop={(turno, inicio) => void reprogramar(turno, inicio)}
-        />
-      ) : null}
-      {vista === "mes" ? (
-        <AgendaMonth
-          desde={desde}
-          hasta={hasta}
-          turnos={turnos}
-          esReprogramable={esReprogramable}
-          onDragStart={() => undefined}
-          onDrop={(turno, inicio) => void reprogramar(turno, inicio)}
-        />
-      ) : null}
+      <div
+        className="agenda-scroll"
+        role="region"
+        aria-label="Grilla de agenda"
+        tabIndex={0}
+      >
+        {vista === "dia" ? (
+          <AgendaDay
+            fecha={fecha}
+            turnos={turnos}
+            bloqueos={bloqueosVisibles}
+            esReprogramable={esReprogramable}
+            onDragStart={() => undefined}
+            onDrop={(turno, inicio) => void reprogramar(turno, inicio)}
+          />
+        ) : null}
+        {vista === "semana" ? (
+          <AgendaWeek
+            desde={desde}
+            hasta={hasta}
+            turnos={turnos}
+            bloqueos={bloqueosVisibles}
+            esReprogramable={esReprogramable}
+            onDragStart={() => undefined}
+            onDrop={(turno, inicio) => void reprogramar(turno, inicio)}
+          />
+        ) : null}
+        {vista === "mes" ? (
+          <AgendaMonth
+            desde={desde}
+            hasta={hasta}
+            turnos={turnos}
+            esReprogramable={esReprogramable}
+            onDragStart={() => undefined}
+            onDrop={(turno, inicio) => void reprogramar(turno, inicio)}
+          />
+        ) : null}
+      </div>
     </main>
   );
 }

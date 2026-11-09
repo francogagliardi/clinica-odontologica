@@ -1,3 +1,6 @@
+import { usePathname } from "./shared/navigation";
+import { BackofficeShell } from "./shared/layout/BackofficeShell";
+import { PublicShell } from "./shared/layout/PublicShell";
 import { HomePage } from "./pages/HomePage";
 import { AgendaPage } from "./pages/AgendaPage";
 import { AuditoriaPage } from "./pages/AuditoriaPage";
@@ -10,9 +13,30 @@ import { UsuariosPage } from "./pages/UsuariosPage";
 
 const GESTION_PREFIX = "/reservar/gestion/";
 
-/** Minimal pathname router (no business logic in the client, R-07). */
+const BACKOFFICE_PATHS: ReadonlySet<string> = new Set([
+  "/agenda",
+  "/reportes",
+  "/usuarios",
+  "/auditoria",
+]);
+
+/**
+ * Minimal pathname router (no business logic in the client, R-07).
+ * The shell is chosen here; every page keeps rendering its own <main>.
+ */
 export function App(): React.JSX.Element {
-  const pathname = window.location.pathname;
+  const pathname = usePathname();
+  const page = renderPage(pathname);
+
+  if (BACKOFFICE_PATHS.has(pathname)) {
+    return (
+      <BackofficeShell pathname={pathname}>{page}</BackofficeShell>
+    );
+  }
+  return <PublicShell pathname={pathname}>{page}</PublicShell>;
+}
+
+function renderPage(pathname: string): React.JSX.Element {
   if (pathname.startsWith(GESTION_PREFIX)) {
     return <GestionTurnoPage token={pathname.slice(GESTION_PREFIX.length)} />;
   }

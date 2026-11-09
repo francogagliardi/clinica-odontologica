@@ -87,7 +87,7 @@ Regla: si la herramienta MCP contradice a la KB, gana la KB y la discrepancia se
 
 El plan de implementación completo está en [CHANGES.md](CHANGES.md). Resumen:
 
-- **Total**: 16 changes (C-01–C-16) en 7 fases (F0 cimientos → F6 cierre).
+- **Total**: 16 changes planificados (C-01–C-16) en 7 fases (F0 cimientos → F6 cierre) + **C-17** (extra post-roadmap: sistema de diseño y pase visual de la SPA, cerrado 2026-11-09).
 - **Camino crítico** (8): `C-01 → C-02 → C-03 → C-04 → C-06 → C-09 → C-13 → C-14` (C-05 corre en paralelo con C-04; rama clínica C-11 → C-12 ageota C-13/C-14 en paralelo).
 - **Primer change**: `C-01 foundation-setup` (scaffolding + Compose api/frontend/db/redis, FastAPI health check, Vite base, `.env.example`, Alembic init, colas reservadas `whatsapp:send, recordatorios:due, arca:emitir`).
 - **Gates con paralelismo**: GATE 3 (C-04 ∥ C-05), GATE 4 (C-06 ∥ C-11), GATE 5 (C-07 ∥ C-08 ∥ C-09); plan óptimo de 3 agentes en CHANGES.md §Plan óptimo.

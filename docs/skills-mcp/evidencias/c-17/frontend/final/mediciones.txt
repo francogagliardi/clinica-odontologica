@@ -1,0 +1,31 @@
+portada-320 :: viewport=320 scrollWidth=320 overflow=no main=1 h1=1 tablas=0 regiones=0 thSinScope=0 skip=true menu=oculto
+portada-900 :: viewport=900 scrollWidth=900 overflow=no main=1 h1=1 tablas=0 regiones=0 thSinScope=0 skip=true menu=oculto
+portada-1280 :: viewport=1280 scrollWidth=1280 overflow=no main=1 h1=1 tablas=0 regiones=0 thSinScope=0 skip=true menu=oculto
+reservar-320 :: viewport=320 scrollWidth=320 overflow=no main=1 h1=1 tablas=0 regiones=0 thSinScope=0 skip=true menu=oculto
+reservar-900 :: viewport=900 scrollWidth=900 overflow=no main=1 h1=1 tablas=0 regiones=0 thSinScope=0 skip=true menu=oculto
+reservar-1280 :: viewport=1280 scrollWidth=1280 overflow=no main=1 h1=1 tablas=0 regiones=0 thSinScope=0 skip=true menu=oculto
+gestion-410-320 :: viewport=320 scrollWidth=320 overflow=no main=1 h1=1 tablas=0 regiones=0 thSinScope=0 skip=true menu=oculto
+gestion-410-900 :: viewport=900 scrollWidth=900 overflow=no main=1 h1=1 tablas=0 regiones=0 thSinScope=0 skip=true menu=oculto
+gestion-410-1280 :: viewport=1280 scrollWidth=1280 overflow=no main=1 h1=1 tablas=0 regiones=0 thSinScope=0 skip=true menu=oculto
+agenda-320 :: viewport=320 scrollWidth=320 overflow=no main=1 h1=1 tablas=0 regiones=0 thSinScope=0 skip=true menu=visible
+agenda-900 :: viewport=900 scrollWidth=900 overflow=no main=1 h1=1 tablas=0 regiones=0 thSinScope=0 skip=true menu=visible
+agenda-1280 :: viewport=1280 scrollWidth=1280 overflow=no main=1 h1=1 tablas=0 regiones=0 thSinScope=0 skip=true menu=oculto
+reportes-320 :: viewport=320 scrollWidth=320 overflow=no main=1 h1=1 tablas=1 regiones=1 thSinScope=0 skip=true menu=visible
+reportes-900 :: viewport=900 scrollWidth=900 overflow=no main=1 h1=1 tablas=1 regiones=1 thSinScope=0 skip=true menu=visible
+reportes-1280 :: viewport=1280 scrollWidth=1280 overflow=no main=1 h1=1 tablas=1 regiones=1 thSinScope=0 skip=true menu=oculto
+usuarios-320 :: viewport=320 scrollWidth=320 overflow=no main=1 h1=1 tablas=1 regiones=1 thSinScope=0 skip=true menu=visible
+usuarios-900 :: viewport=900 scrollWidth=900 overflow=no main=1 h1=1 tablas=1 regiones=1 thSinScope=0 skip=true menu=visible
+usuarios-1280 :: viewport=1280 scrollWidth=1280 overflow=no main=1 h1=1 tablas=1 regiones=1 thSinScope=0 skip=true menu=oculto
+auditoria-320 :: viewport=320 scrollWidth=320 overflow=no main=1 h1=1 tablas=1 regiones=1 thSinScope=0 skip=true menu=visible
+auditoria-900 :: viewport=900 scrollWidth=900 overflow=no main=1 h1=1 tablas=1 regiones=1 thSinScope=0 skip=true menu=visible
+auditoria-1280 :: viewport=1280 scrollWidth=1280 overflow=no main=1 h1=1 tablas=1 regiones=1 thSinScope=0 skip=true menu=oculto
+privacidad-320 :: viewport=320 scrollWidth=320 overflow=no main=1 h1=1 tablas=0 regiones=0 thSinScope=0 skip=true menu=oculto
+privacidad-900 :: viewport=900 scrollWidth=900 overflow=no main=1 h1=1 tablas=0 regiones=0 thSinScope=0 skip=true menu=oculto
+privacidad-1280 :: viewport=1280 scrollWidth=1280 overflow=no main=1 h1=1 tablas=0 regiones=0 thSinScope=0 skip=true menu=oculto
+404-320 :: viewport=320 scrollWidth=320 overflow=no main=1 h1=1 tablas=0 regiones=0 thSinScope=0 skip=true menu=oculto
+404-900 :: viewport=900 scrollWidth=900 overflow=no main=1 h1=1 tablas=0 regiones=0 thSinScope=0 skip=true menu=oculto
+404-1280 :: viewport=1280 scrollWidth=1280 overflow=no main=1 h1=1 tablas=0 regiones=0 thSinScope=0 skip=true menu=oculto
+movimiento reducido :: button=1e-05s skip=1e-05s keyframes=false
+impresión :: final-reportes-impresion-1280.png
+impresión :: final-privacidad-impresion-1280.png
+objetivos táctiles 320 :: principal={"width":254,"height":44} hueco={"width":60,"height":24} nav={"width":52,"height":24}

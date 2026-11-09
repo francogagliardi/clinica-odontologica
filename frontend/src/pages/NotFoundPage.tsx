@@ -1,9 +1,19 @@
-/** Fallback for unknown routes: 404 without breaking the SPA. */
+import { Button } from "../shared/ui/Button";
+import { PageHeader } from "../shared/ui/PageHeader";
+
+/** Fallback for unknown routes: public 404 without protected navigation. */
 export function NotFoundPage(): React.JSX.Element {
   return (
     <main>
-      <h1>Página no encontrada</h1>
-      <p>404 — la ruta solicitada no existe.</p>
+      <PageHeader
+        title="Página no encontrada"
+        description="404 — la ruta solicitada no existe."
+      />
+      <p>
+        <Button href="/reservar" variant="secondary">
+          Reservar un turno
+        </Button>
+      </p>
     </main>
   );
 }

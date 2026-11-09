@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -32,6 +33,7 @@ const FILA_PAGINA_2 = {
 let calls: Array<{ url: string; init?: RequestInit }>;
 let status: number;
 let loginRoles: string[];
+let filasVacias: boolean;
 
 function response(body: unknown, code = 200): Response {
   return {
@@ -71,7 +73,7 @@ function installFetch(): void {
           total: 120,
           limite,
           offset,
-          filas: offset === 0 ? [FILA] : [FILA_PAGINA_2],
+          filas: filasVacias ? [] : offset === 0 ? [FILA] : [FILA_PAGINA_2],
         });
       }
       throw new Error(`sin mock: ${url}`);
@@ -89,6 +91,7 @@ beforeEach(() => {
   calls = [];
   status = 200;
   loginRoles = ["auditor"];
+  filasVacias = false;
   logout();
   installFetch();
 });
@@ -178,6 +181,43 @@ describe("AuditoriaPage", () => {
     expect(alerta.textContent).toContain("403");
     expect(alerta.textContent).toContain("Permisos insuficientes");
     expect(screen.queryByRole("button", { name: "Buscar" })).toBeNull();
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("presenta filtros etiquetados y la tabla en una región con encabezados", async () => {
+    await entrar();
+    render(<AuditoriaPage />);
+    await screen.findByText("usuario.crear");
+
+    for (const etiqueta of [
+      "Usuario (id)",
+      "Entidad",
+      "Acción",
+      "Desde",
+      "Hasta",
+      "Límite",
+    ]) {
+      expect(screen.getByLabelText(etiqueta)).toBeTruthy();
+    }
+
+    const region = screen.getByRole("region", { name: "Auditoría" });
+    const tabla = within(region).getByRole("table");
+    for (const th of within(tabla).getAllByRole("columnheader")) {
+      expect(th.getAttribute("scope")).toBe("col");
+    }
+  });
+
+  it("muestra un vacío explicativo cuando no hay registros", async () => {
+    filasVacias = true;
+    await entrar();
+    render(<AuditoriaPage />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 2,
+        name: /sin registros/i,
+      }),
+    ).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
   });
 });

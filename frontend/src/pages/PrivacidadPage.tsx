@@ -1,4 +1,4 @@
-/** Public privacy policy page: versioned text, hash and no acceptance step. */
+/** Public privacy policy page: centered reading column, versioned text and hash. */
 
 import { useEffect, useState } from "react";
 
@@ -7,12 +7,11 @@ import {
   fetchPrivacidad,
   type PoliticaPrivacidad,
 } from "../features/privacidad/api";
-
-function asMessage(failure: unknown): string {
-  return failure instanceof ApiError
-    ? describeFailure(failure)
-    : String(failure);
-}
+import { goBack } from "../shared/navigation";
+import { Button } from "../shared/ui/Button";
+import { ErrorBanner } from "../shared/ui/ErrorBanner";
+import { Loading } from "../shared/ui/Loading";
+import { PageHeader } from "../shared/ui/PageHeader";
 
 export function PrivacidadPage(): React.JSX.Element {
   const [politica, setPolitica] = useState<PoliticaPrivacidad | null>(null);
@@ -38,23 +37,50 @@ export function PrivacidadPage(): React.JSX.Element {
 
   if (politica === null) {
     return (
-      <main>
-        <h1>Política de privacidad</h1>
-        {error !== null ? <p role="alert">{error}</p> : <p>Cargando…</p>}
+      <main className="ds-reading">
+        <PageHeader
+          title="Política de privacidad"
+          actions={
+            <Button variant="ghost" onClick={() => goBack("/")}>
+              Volver
+            </Button>
+          }
+        />
+        {error !== null ? <ErrorBanner message={error} /> : <Loading />}
       </main>
     );
   }
 
   return (
-    <main>
-      <h1>Política de privacidad</h1>
-      <p>Versión: {politica.version}</p>
-      <p>Vigente desde: {politica.vigente_desde}</p>
-      <p>{politica.texto}</p>
-      <p>Hash SHA-256: {politica.hash}</p>
-      <p>
-        <a href="/reservar">Volver a reservar</a>
-      </p>
+    <main className="ds-reading">
+      <PageHeader
+        title="Política de privacidad"
+        description="Texto informativo versionado; no se pide aceptación para reservar."
+        actions={
+          <Button variant="ghost" onClick={() => goBack("/")}>
+            Volver
+          </Button>
+        }
+      />
+      <article className="ds-prose" aria-label="Política de privacidad">
+        <dl className="ds-meta">
+          <dt>Versión</dt>
+          <dd>{politica.version}</dd>
+          <dt>Vigente desde</dt>
+          <dd>{politica.vigente_desde}</dd>
+        </dl>
+        <p>{politica.texto}</p>
+        <p className="ds-mono">Hash SHA-256: {politica.hash}</p>
+        <p>
+          <Button href="/reservar">Reservar turno</Button>
+        </p>
+      </article>
     </main>
   );
+}
+
+function asMessage(failure: unknown): string {
+  return failure instanceof ApiError
+    ? describeFailure(failure)
+    : String(failure);
 }

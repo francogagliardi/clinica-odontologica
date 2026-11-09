@@ -13,10 +13,10 @@ afterEach(() => {
 });
 
 describe("SPA routes", () => {
-  it("renders the backoffice placeholder at /", () => {
+  it("renders the public landing at /", () => {
     renderAt("/");
     expect(
-      screen.getByRole("heading", { name: /backoffice/i }),
+      screen.getByRole("heading", { name: /clínica odontológica/i }),
     ).toBeTruthy();
   });
 

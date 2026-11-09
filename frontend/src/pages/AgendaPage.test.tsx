@@ -1,8 +1,9 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AgendaPage } from "./AgendaPage";
 import { login, logout } from "../features/auth/session";
+import appCss from "../styles/app.css?raw";
 
 const PROFESIONALES = [
   {
@@ -250,5 +251,41 @@ describe("AgendaPage", () => {
       target: { value: "mes" },
     });
     expect(document.querySelector(".agenda-mes")).toBeTruthy();
+  });
+
+  it("agrupa los filtros y deja la grilla en una región desplazable", async () => {
+    await entrar();
+    await abrirDia();
+
+    const filtros = screen.getByRole("group", { name: "Filtros de agenda" });
+    for (const etiqueta of ["Vista", "Fecha", "Profesional", "Sillón"]) {
+      expect(within(filtros).getByLabelText(etiqueta)).toBeTruthy();
+    }
+    const grilla = screen.getByRole("region", { name: "Grilla de agenda" });
+    expect(grilla.className).toContain("agenda-scroll");
+    expect(grilla.getAttribute("tabindex")).toBe("0");
+  });
+
+  it("muestra badges de estado y distingue el sobreturno", async () => {
+    await entrar();
+    await abrirDia();
+
+    const reservado = within(
+      screen.getByLabelText(/Turno 09:00 reservado/),
+    ).getByText("reservado", { selector: ".ds-badge" });
+    expect(reservado.className).toContain("ds-badge--info");
+
+    const cancelado = within(
+      screen.getByLabelText(/Turno 10:00 cancelado/),
+    ).getByText("cancelado", { selector: ".ds-badge" });
+    expect(cancelado.className).toContain("ds-badge--danger");
+
+    expect(screen.getByText("Sobreturno").className).toContain(
+      "ds-badge--warning",
+    );
+  });
+
+  it("declara foco visible para las celdas de destino del arrastre", () => {
+    expect(appCss).toMatch(/\.agenda-(?:celda|fila):focus-within/);
   });
 });

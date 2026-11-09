@@ -367,6 +367,84 @@ La clínica ya puede consultar cuatro tableros de solo lectura: agenda y ocupaci
 - OpenSpec: 4/4 artefactos completos y `validate --strict` válido.
 - Pendiente: prueba visual/aceptación final sobre la página completa (decisión 2026-11-03).
 
+## C-17 — Diseño visual: rutas públicas
+
+> Slice 2 de C-17. Se prueba sobre `docker compose up -d --build` (o `npm run dev`) con datos demo. En ningún caso se pide aceptar la política de privacidad para reservar.
+
+| # | Ruta | Qué mirar | Ancho | Esperado |
+|---|---|---|---|---|
+| 1 | `/` | Marca, portada y estado del sistema; dos entradas visibles | 320 / 900 / 1280 px | Un solo `h1` “Clínica Odontológica”; las entradas “Reservar turno” e “Ingresar al backoffice” (el `h1` “Backoffice” queda en el login del backoffice); sin scroll horizontal de página |
+| 2 | `/reservar` | Jerarquía, filtros de profesional/prestación/fecha, grilla de huecos y formulario | 320 / 900 px | `h1` “Reservar turno en …”; horarios como botones seleccionables (`aria-pressed`); el formulario no exige aceptar privacidad; la grilla se desplaza dentro de su contenedor en móvil |
+| 3 | `/reservar` sin horarios | Elegir un profesional y una fecha sin disponibilidad | 320 / 900 px | Vacío “No hay horarios disponibles.” con explicación y sin botones de horario |
+| 4 | `/reservar` con 409 | Reservar dos veces el mismo hueco | 320 / 900 px | Alerta verbatim con `409` y el detalle del servidor; el horario elegido y el botón “Reservar” siguen visibles |
+| 5 | `/reservar` confirmada | Completar una reserva válida | 320 / 900 px | Tarjeta “Turno reservado” con estado, seña y enlace “Gestionar mi turno”; sin checkbox de privacidad |
+| 6 | `/reservar/gestion/{token}` | Abrir un enlace de gestión válido | 320 / 900 px | Tarjeta “Resumen del turno” con badge de estado, profesional, prestación y acciones Confirmar/Cancelar; sin datos personales del paciente |
+| 7 | `/reservar/gestion/{token}` vencido | Cancelar y recargar el mismo enlace, o usar uno ajeno | 320 / 900 px | Alerta verbatim con `410` y la indicación “Pedí un enlace nuevo en la clínica.”; sin botones de confirmar/cancelar |
+| 8 | `/privacidad` | Texto largo, versión, fecha y hash | 320 / 900 / 1280 px | Medida de lectura acotada; versión y fecha destacadas; hash en monoespaciada; enlace “Volver a reservar”; sin botones de administración |
+| 9 | Ruta inexistente | Abrir `/ruta-que-no-existe` | 320 / 900 px | `h1` “Página no encontrada” y `404`; shell público sin rail de Agenda/Reportes/Usuarios/Auditoría; salida “Reservar un turno” |
+| 10 | Impresión de `/privacidad` | Vista previa de impresión | — | Texto legible en negro sobre blanco, sin menú ni acciones; versión y hash conservados |
+
+## C-17 — Diseño visual: backoffice y prueba final
+
+> Slice 3 de C-17. Prueba sobre la API demo real (`:8000`, `clinica_demo`, admin
+> `admin@clinica.test`) y la SPA en `:8080`. Evidencia: `docs/skills-mcp/evidencias/c-17/`
+> (`frontend/final/*.png`, `mediciones.txt`, `teclado.txt`, `npm-*.txt` y
+> `matriz-escenarios.md`). Suite: **199/199 tests**, typecheck y build en verde.
+
+### Recorrido de las nueve rutas
+
+| # | Ruta | Anchos | Resultado esperado |
+|---|---|---|---|
+| 1 | `/` | 320 / 900 / 1280 | Marca, dos entradas (reservar e ingresar) y estado del sistema; un `h1`; sin scroll horizontal |
+| 2 | `/reservar` | 320 / 900 / 1280 | `PageHeader`, filtros, grilla de huecos seleccionable y formulario; privacidad sin checkbox; vacío y 409 visibles |
+| 3 | `/reservar/gestion/{token}` | 320 / 900 / 1280 | Card de resumen con badge de estado y acciones; 410 verbatim con “Pedí un enlace nuevo” y sin acciones |
+| 4 | `/agenda` | 320 / 900 / 1280 | Rail de 232 px desde 1024 px; botón Menú por debajo; toolbar en fila desde 900 px; grilla con scroll interno; estados con badge, sobreturno y bloqueo |
+| 5 | `/reportes` | 320 / 900 / 1280 | Cuatro tableros, totales sin truncar, tablas en regiones desplazables, exportación con estados `pendiente`/`generando`/`lista`/`fallida` |
+| 6 | `/usuarios` | 320 / 900 / 1280 | Alta en Card, tabla densa con badges `activo`/`inactivo`, roles y acciones agrupadas; 403/409/422 verbatim |
+| 7 | `/auditoria` | 320 / 900 / 1280 | Filtros, `Total: 120`, tabla paginada con `Anterior`/`Siguiente` y sin controles de escritura |
+| 8 | `/privacidad` | 320 / 900 / 1280 | Lectura de 68ch, versión/fecha destacadas y hash monoespaciado que no desborda a 320 px |
+| 9 | Ruta inexistente | 320 / 900 / 1280 | 404 con shell público y salida “Reservar un turno”, sin navegación protegida |
+
+### Controles transversales
+
+| Control | Cómo | Resultado esperado |
+|---|---|---|
+| Sin scroll horizontal | `mediciones.txt`: comparar `scrollWidth` con `innerWidth` en cada ruta y ancho | Todas las filas `overflow=no` (320, 900 y 1280) |
+| Teclado | Abrir `/` y `/agenda`, presionar Tab desde la pantalla inicial (`teclado.txt`) | Primer foco = “Saltar al contenido”; luego marca, navegación y campos en orden |
+| Navegación interna | Entrar a `/agenda` y usar el rail a Reportes/Usuarios/Auditoría; luego Atrás/Adelante | Sin recarga: la sesión, la identidad y `aria-current` se conservan (`navegacion.txt`) |
+| Login centrado | Abrir `/agenda`, `/reportes`, `/usuarios` y `/auditoria` sin sesión a 320/900/1280 | Tarjeta de 440 px centrada horizontal y verticalmente, sin rail ni navegación protegida; campos `Email`/`Contraseña` y botón `Ingresar`; error 401 en banner (`login-layout.txt`) |
+| Portada hero | Abrir `/` a 320/900/1280 | Eyebrow “Clínica odontológica”, `h1` Backoffice, descripción y dos entradas centradas; columna de 44 rem con aire superior/inferior; estado del sistema debajo (`home-layout.txt`) |
+| Semáforo de estado | Abrir `/` con API sana y simular `/health` caído | Tres filas con texto “Operativo”/“Con error”; solo la fila afectada cambia de tono; error verbatim en mono; carga en `role="status"` |
+| Privacidad centrada y Volver | Entrar a `/privacidad` desde `/`, desde `/reservar` y por URL directa | Columna de 68ch centrada; “Volver” regresa al origen o a `/` si no hay historial; CTA “Reservar turno” con estilo de botón |
+| Centrado global | Recorrer las 9 rutas a 1280 | Contenedor `.ds-content` consistente; backoffice después del rail de 232 px; sin scroll horizontal |
+| Contraste | `tokens.test.ts` recalcula 17 pares | Texto ≥ 4.5:1 e interfaz/foco ≥ 3:1 |
+| Movimiento reducido | Emular `prefers-reduced-motion: reduce` y medir `transitionDuration` | `1e-05s`; sin `@keyframes` ni animaciones en bucle |
+| Impresión de reportes | Vista previa de `reportes-impresion-1280.png` | Sin rail/topbar/filtros/botones/exportación; negro sobre blanco; `thead` repetido y filas sin cortar |
+| Impresión pública | Vista previa de `privacidad-impresion-1280.png` | Texto legible sin menú ni acciones; versión y hash conservados |
+| Objetivos táctiles | Medir a 320 px (`mediciones.txt`) | Acción principal 44 px; enlaces y acciones secundarias ≥ 24 px |
+| 403 | Login de rol sin permiso en `/usuarios`, `/auditoria` o `/reportes` | Mensaje verbatim con `403`; sin controles de escritura ni tabla cuando la API prohíbe |
+| 409 | Reservar dos veces el mismo hueco o desactivar al último admin | Alerta verbatim con `409`; la selección/estado no cambia |
+| 410 | Cancelar y recargar el enlace de gestión, o usar uno ajeno | Alerta verbatim con `410` + enlace nuevo; sin Confirmar/Cancelar |
+| 422 | Alta de usuario vacía o datos inválidos que rechaza el backend | El cliente no valida: envía el POST y muestra `422` + detalle del servidor |
+
+### Resultado automatizado
+
+- `npm-test.txt`: **199/199** en 31 archivos; los **64 tests preexistentes** siguen
+  verdes.
+- `npm-typecheck.txt` y `npm-build.txt`: sin errores; bundle CSS 18.84 kB / JS 183.39 kB.
+- `session.ts`, `shared/api/client.ts` y `features/*/api.ts` no aparecen en el diff:
+  mismas llamadas de red y sesión solo en memoria.
+- Accesibilidad estructural (`a11y.test.tsx`): un `main`, un `h1`, skip link primero,
+  `th[scope="col"]`, regiones de tabla con nombre y foco, y `aria-invalid`/
+  `aria-describedby` en el error de login.
+
+### Pendiente de la aceptación del usuario
+
+- Enlace de gestión **válido** con un token real del seed (la captura real cubre el 410; el resumen válido está cubierto por test con fixture).
+- Zoom real al 200 % y reflujo en el navegador del usuario.
+- Impresión física y revisión de las serif en el sistema operativo final.
+- Recorrido con los cinco roles demo y aprobación visual final sobre la página completa.
+
 ## Prueba final de la página
 
 Cuando estén todos los changes:

@@ -9,24 +9,35 @@ import {
   fetchGestion,
   type GestionTurnoResponse,
 } from "../features/reserva/api";
+import { Button } from "../shared/ui/Button";
+import { Card } from "../shared/ui/Card";
+import { ErrorBanner } from "../shared/ui/ErrorBanner";
+import { EstadoBadge } from "../shared/ui/EstadoBadge";
+import { Loading } from "../shared/ui/Loading";
+import { PageHeader } from "../shared/ui/PageHeader";
 
 interface Props {
   token: string;
 }
 
+interface Fallo {
+  mensaje: string;
+  status: number | null;
+}
+
 export function GestionTurnoPage({ token }: Props): React.JSX.Element {
   const [turno, setTurno] = useState<GestionTurnoResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [fallo, setFallo] = useState<Fallo | null>(null);
   const [mensaje, setMensaje] = useState<string | null>(null);
 
   useEffect(() => {
     fetchGestion(token)
       .then(setTurno)
-      .catch((failure: unknown) => setError(asMessage(failure)));
+      .catch((failure: unknown) => setFallo(asFallo(failure)));
   }, [token]);
 
   async function accion(confirmar: boolean) {
-    setError(null);
+    setFallo(null);
     try {
       const resultado = confirmar
         ? await confirmarTurno(token)
@@ -38,51 +49,58 @@ export function GestionTurnoPage({ token }: Props): React.JSX.Element {
       );
       setTurno(null);
     } catch (failure) {
-      setError(asMessage(failure));
+      setFallo(asFallo(failure));
     }
   }
 
   if (turno === null) {
     return (
       <main>
-        <h1>Mi turno</h1>
-        {error !== null ? <p role="alert">{error}</p> : null}
+        <PageHeader title="Mi turno" />
+        {fallo !== null ? <ErrorBanner message={fallo.mensaje} /> : null}
+        {fallo?.status === 410 ? (
+          <p>Pedí un enlace nuevo en la clínica.</p>
+        ) : null}
         {mensaje !== null ? <p role="status">{mensaje}</p> : null}
-        {error === null && mensaje === null ? <p>Cargando…</p> : null}
+        {fallo === null && mensaje === null ? <Loading /> : null}
       </main>
     );
   }
 
   return (
     <main>
-      <h1>Mi turno</h1>
-      <p>Estado: {turno.estado}</p>
-      <p>Inicio: {new Date(turno.inicio).toLocaleString("es-AR")}</p>
-      <p>Profesional: {turno.profesional.matricula}</p>
-      {turno.prestacion !== null ? (
-        <p>Prestación: {turno.prestacion.nombre}</p>
-      ) : null}
-      <p>Seña: {turno.sena.estado}</p>
-      <p>{turno.politica_sena}</p>
+      <PageHeader title="Mi turno" />
+      <Card
+        title="Resumen del turno"
+        actions={<EstadoBadge estado={turno.estado} />}
+      >
+        <p>Estado: {turno.estado}</p>
+        <p>Inicio: {new Date(turno.inicio).toLocaleString("es-AR")}</p>
+        <p>Profesional: {turno.profesional.matricula}</p>
+        {turno.prestacion !== null ? (
+          <p>Prestación: {turno.prestacion.nombre}</p>
+        ) : null}
+        <p>Seña: {turno.sena.estado}</p>
+        <p>{turno.politica_sena}</p>
 
-      {turno.puede_confirmar ? (
-        <button type="button" onClick={() => void accion(true)}>
-          Confirmar turno
-        </button>
-      ) : null}
-      {turno.puede_cancelar ? (
-        <button type="button" onClick={() => void accion(false)}>
-          Cancelar turno
-        </button>
-      ) : null}
+        {turno.puede_confirmar ? (
+          <Button onClick={() => void accion(true)}>Confirmar turno</Button>
+        ) : null}
+        {turno.puede_cancelar ? (
+          <Button variant="secondary" onClick={() => void accion(false)}>
+            Cancelar turno
+          </Button>
+        ) : null}
+      </Card>
 
-      {error !== null ? <p role="alert">{error}</p> : null}
+      {fallo !== null ? <ErrorBanner message={fallo.mensaje} /> : null}
+      {mensaje !== null ? <p role="status">{mensaje}</p> : null}
     </main>
   );
 }
 
-function asMessage(failure: unknown): string {
+function asFallo(failure: unknown): Fallo {
   return failure instanceof ApiError
-    ? describeFailure(failure)
-    : String(failure);
+    ? { mensaje: describeFailure(failure), status: failure.status }
+    : { mensaje: String(failure), status: null };
 }

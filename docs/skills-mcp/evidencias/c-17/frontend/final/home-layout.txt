@@ -1,0 +1,8 @@
+home 320 :: {"viewport":320,"scrollWidth":320,"topOffset":48,"innerWidth":288,"innerLeft":16,"innerRight":16,"eyebrow":"Turnos online","title":"Clínica Odontológica"}
+home 900 :: {"viewport":900,"scrollWidth":900,"topOffset":74,"innerWidth":704,"innerLeft":98,"innerRight":98,"eyebrow":"Turnos online","title":"Clínica Odontológica"}
+home 1280 :: {"viewport":1280,"scrollWidth":1280,"topOffset":82,"innerWidth":704,"innerLeft":288,"innerRight":288,"eyebrow":"Turnos online","title":"Clínica Odontológica"}
+home error title=Clínica Odontológica status=API 503: {"detail":"Sin conexión con la API"}
+login agenda :: h1=Backoffice
+login reportes :: h1=Backoffice
+login usuarios :: h1=Backoffice
+login auditoria :: h1=Backoffice

@@ -1,8 +1,9 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ReportesPage } from "./ReportesPage";
 import { login, logout } from "../features/auth/session";
+import appCss from "../styles/app.css?raw";
 
 const AGENDA = {
   total_turnos: 99,
@@ -60,6 +61,8 @@ const LIQUIDACIONES = {
 const calls: Array<{ url: string; init?: RequestInit }> = [];
 let agendaStatus = 200;
 let exportPolls = 0;
+let estadoInicial: "pendiente" | "generando" | "fallida" = "pendiente";
+let estadoSondeo: "pendiente" | "generando" | "lista" | "fallida" = "lista";
 
 function response(body: unknown, status = 200): Response {
   return {
@@ -100,13 +103,22 @@ function installFetch(): void {
         return response(LIQUIDACIONES);
       }
       if (url.endsWith("/exportaciones") && init?.method === "POST") {
-        return response({ id: "e1", estado: "pendiente" }, 202);
+        return response(
+          {
+            id: "e1",
+            estado: estadoInicial,
+            ultimo_error:
+              estadoInicial === "fallida" ? "Falló la generación" : null,
+          },
+          202,
+        );
       }
       if (url.endsWith("/exportaciones/e1")) {
         exportPolls += 1;
         return response({
           id: "e1",
-          estado: exportPolls === 1 ? "pendiente" : "lista",
+          estado: exportPolls === 1 ? estadoSondeo : "lista",
+          ultimo_error: estadoSondeo === "fallida" ? "Falló la generación" : null,
         });
       }
       if (url.endsWith("/exportaciones/e1/archivo")) {
@@ -121,6 +133,8 @@ beforeEach(async () => {  vi.stubEnv("VITE_API_BASE_URL", "http://api.test");
   calls.length = 0;
   agendaStatus = 200;
   exportPolls = 0;
+  estadoInicial = "pendiente";
+  estadoSondeo = "lista";
   logout();
   installFetch();
   await login("a@test", "clave");
@@ -221,5 +235,93 @@ describe("ReportesPage", () => {
     });
     expect(createObjectURL).toHaveBeenCalled();
     click.mockRestore();
+  });
+
+  it("presenta los cuatro tableros con jerarquía de encabezados", async () => {
+    render(<ReportesPage />);
+    await screen.findByText("Turnos totales: 99");
+
+    for (const tablero of ["Agenda", "Ausentismo", "Caja", "Liquidaciones"]) {
+      expect(
+        screen.getByRole("heading", { level: 2, name: tablero }),
+      ).toBeTruthy();
+    }
+  });
+
+  it("envuelve cada detalle en una región desplazable con nombre", async () => {
+    render(<ReportesPage />);
+    await screen.findByText("Turnos totales: 99");
+
+    const tablas = screen.getAllByRole("table");
+    expect(tablas.length).toBeGreaterThan(0);
+    for (const tabla of tablas) {
+      const region = tabla.closest('[role="region"]');
+      expect(region).not.toBeNull();
+      expect(region?.getAttribute("aria-label")).toBeTruthy();
+      expect(region?.getAttribute("tabindex")).toBe("0");
+    }
+  });
+
+  it("muestra el vacío del detalle sin inventar filas", async () => {
+    render(<ReportesPage />);
+    await screen.findByText("Turnos totales: 99");
+
+    const ausentismo = screen.getByRole("region", { name: "Ausentismo" });
+    expect(
+      within(ausentismo).getByText("Sin detalle para el rango."),
+    ).toBeTruthy();
+    expect(within(ausentismo).queryByRole("table")).toBeNull();
+  });
+
+  it("anuncia la exportación en curso y mantiene la descarga deshabilitada", async () => {
+    estadoInicial = "generando";
+    render(<ReportesPage />);
+    await screen.findByText("Turnos totales: 99");
+
+    fireEvent.change(screen.getByLabelText(/Paciente \(id\)/), {
+      target: { value: "p1" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Exportar paciente" }),
+    );
+
+    const progreso = await screen.findByRole("status");
+    expect(progreso.textContent).toMatch(/generando/i);
+    expect(
+      screen.getByRole("button", { name: "Descargar ZIP" }).hasAttribute(
+        "disabled",
+      ),
+    ).toBe(true);
+  });
+
+  it("muestra una exportación fallida con el error de la API", async () => {
+    estadoInicial = "fallida";
+    estadoSondeo = "fallida";
+    render(<ReportesPage />);
+    await screen.findByText("Turnos totales: 99");
+
+    fireEvent.change(screen.getByLabelText(/Paciente \(id\)/), {
+      target: { value: "p1" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Exportar paciente" }),
+    );
+
+    expect(await screen.findByText("Estado: fallida")).toBeTruthy();
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Falló la generación",
+    );
+    expect(
+      screen.getByRole("button", { name: "Descargar ZIP" }).hasAttribute(
+        "disabled",
+      ),
+    ).toBe(true);
+  });
+
+  it("incluye hoja de impresión con encabezados repetidos y filas sin cortar", () => {
+    expect(appCss).toContain("@media print");
+    expect(appCss).toMatch(/thead\s*\{[^}]*display:\s*table-header-group/);
+    expect(appCss).toMatch(/tr\s*\{[^}]*page-break-inside:\s*avoid/);
+    expect(appCss).toMatch(/page-break-inside:\s*auto/);
   });
 });

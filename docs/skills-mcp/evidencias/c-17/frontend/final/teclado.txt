@@ -1,0 +1,4 @@
+teclado / (pantalla inicial) :: primer foco=A "Saltar al contenido" href=#contenido
+teclado / :: orden=A:Saltar al contenido > A:Clínica Odontológica > A:Reservar > A:Ingresar > A:Privacidad > A:Reservar turno
+teclado /agenda (pantalla inicial) :: primer foco=A "Saltar al contenido" href=#contenido
+teclado /agenda :: orden=A:Saltar al contenido > A:Clínica Odontológica > INPUT: > INPUT: > BUTTON:Ingresar > BODY:Saltar al contenidoClíni

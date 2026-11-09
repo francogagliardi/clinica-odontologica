@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PrivacidadPage } from "./PrivacidadPage";
@@ -24,6 +24,7 @@ function response(body: unknown, code = 200): Response {
 beforeEach(() => {
   vi.stubEnv("VITE_API_BASE_URL", "http://api.test");
   status = 200;
+  window.history.replaceState(null, "", "/privacidad");
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL) => {
@@ -65,5 +66,45 @@ describe("PrivacidadPage", () => {
     expect(alerta.textContent).toContain("404");
     expect(alerta.textContent).toContain("Política no disponible");
     expect(screen.queryByText(/Texto público de privacidad/)).toBeNull();
+  });
+
+  it("presenta lectura larga, metadatos destacados y hash monoespaciado", async () => {
+    render(<PrivacidadPage />);
+    await screen.findByText(/v1-2026-11/);
+
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    const articulo = screen.getByRole("article", {
+      name: "Política de privacidad",
+    });
+    expect(
+      within(articulo).getByText(/Texto público de privacidad/),
+    ).toBeTruthy();
+    expect(within(articulo).getByText("Versión")).toBeTruthy();
+    expect(within(articulo).getByText("Vigente desde")).toBeTruthy();
+    const hash = within(articulo).getByText(new RegExp("b".repeat(64)));
+    expect(hash.className).toContain("ds-mono");
+  });
+
+  it("usa una columna de lectura centrada y un botón Volver real", async () => {
+    window.history.replaceState({ appIndex: 1 }, "", "/privacidad");
+    const back = vi
+      .spyOn(window.history, "back")
+      .mockImplementation(() => undefined);
+    render(<PrivacidadPage />);
+    await screen.findByText(/v1-2026-11/);
+
+    expect(document.querySelector("main.ds-reading")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Volver" }));
+    expect(back).toHaveBeenCalledTimes(1);
+    back.mockRestore();
+  });
+
+  it("el CTA Reservar turno usa el estilo de botón del sistema", async () => {
+    render(<PrivacidadPage />);
+    await screen.findByText(/v1-2026-11/);
+
+    const cta = screen.getByRole("link", { name: "Reservar turno" });
+    expect(cta.getAttribute("href")).toBe("/reservar");
+    expect(cta.className).toContain("ds-button");
   });
 });

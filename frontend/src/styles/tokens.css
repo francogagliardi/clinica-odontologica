@@ -1,0 +1,112 @@
+/**
+ * C-17 design tokens — single source of truth for the "esmalte y petróleo"
+ * direction (design.md D2–D4). Only custom properties live here: components and
+ * layouts must consume them through var(--…).
+ *
+ * Naming is by role, never by value. Contrast ratios for every text/interface
+ * pair are recalculated by tokens.test.ts.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* ── Color — roles ───────────────────────────────────────────────────── */
+  --color-ink: #10282c;
+  --color-ink-soft: #4a6265;
+  --color-paper: #f4f8f6;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #e7efec;
+  --color-line: #d3dfda;
+  --color-line-strong: #6b847c;
+  --color-primary: #0a5c4e;
+  --color-primary-hover: #084c40;
+  --color-primary-tint: #e3f0eb;
+  --color-danger: #9e2a22;
+  --color-danger-bg: #fbeae7;
+  --color-warning: #7a4e0f;
+  --color-warning-bg: #fbf1dc;
+  --color-info: #245a73;
+  --color-info-bg: #e8f0f4;
+  --color-focus: #0a5c4e;
+  --color-print-bg: #ffffff;
+  --color-print-ink: #000000;
+
+  /* ── Typography ──────────────────────────────────────────────────────── */
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
+    "Times New Roman", serif;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas,
+    "Liberation Mono", monospace;
+
+  --weight-body: 400;
+  --weight-ui: 600;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: clamp(2rem, 1.4rem + 3vw, 3rem);
+  --text-display: clamp(2.5rem, 1.6rem + 4.4vw, 4.25rem);
+
+  --leading-xs: 1.4;
+  --leading-sm: 1.45;
+  --leading-base: 1.55;
+  --leading-lg: 1.5;
+  --leading-xl: 1.3;
+  --leading-2xl: 1.2;
+  --leading-3xl: 1.1;
+  --leading-display: 1;
+
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0;
+
+  --measure-public: 68ch;
+  --measure-backoffice: 78ch;
+
+  /* ── Spacing (4 px base) ─────────────────────────────────────────────── */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* ── Radii: distinct by function (D2/D4) ─────────────────────────────── */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 10px;
+  --radius-pill: 999px;
+
+  /* ── Borders ─────────────────────────────────────────────────────────── */
+  --border-width: 1px;
+  --border-hairline: var(--border-width) solid var(--color-line);
+  --border-control: var(--border-width) solid var(--color-line-strong);
+
+  /* ── Focus ring: 2 px + 2 px offset (D3) ─────────────────────────────── */
+  --focus-width: 2px;
+  --focus-offset: 2px;
+  --focus-ring: var(--focus-width) solid var(--color-focus);
+
+  /* ── Shadow: intentionally flat ──────────────────────────────────────── */
+  --shadow-surface: none;
+
+  /* ── Motion: only state changes (D10) ────────────────────────────────── */
+  --motion-duration-fast: 120ms;
+  --motion-duration-slow: 180ms;
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+  --motion-reduced: 0.01ms;
+
+  /* ── Layout ──────────────────────────────────────────────────────────── */
+  --rail-width: 232px;
+  --shell-max: 1280px;
+  --gutter: clamp(1rem, 0.5rem + 2vw, 2.5rem);
+  --touch-target: 44px;
+  --tap-target: 24px;
+}

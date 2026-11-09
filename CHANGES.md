@@ -40,6 +40,7 @@ C-01 foundation-setup
                 └── C-14 facturacion-arca-obras-sociales
                       └── C-15 reportes-exportacion
                             └── C-16 admin-roles-auditoria-deploy
+                                  └── C-17 frontend-design-system   ← extra post-roadmap (presentacional)
 ```
 
 ### Paralelismo por fase
@@ -434,3 +435,28 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux/Integ.)    │ A
   - `knowledge-base/03_actores_y_roles.md` §RBAC — Matriz de permisos
   - `knowledge-base/08_arquitectura_propuesta.md` §Seguridad
   - `knowledge-base/10_preguntas_abiertas.md` §P-05
+
+---
+
+## EXTRA — Diseño visual (post-roadmap)
+
+### [C-17] `frontend-design-system`
+- **Estado**: `[x]` cerrado 2026-11-09 (archivado en `openspec/changes/archive/`) — 199 tests frontend (64 preexistentes + 135 nuevos) + 1341 backend sin cambios
+- **Scope**: Sistema de diseño “esmalte y petróleo” y pase visual completo de la SPA (solo presentación; sin cambios de contrato ni de backend)
+  - `tokens.css` con paleta, tipografía editorial del sistema, espaciado, radios, foco y movimiento; contrastes AA recalculados desde los hex por test (4.5:1 texto / 3:1 interfaz)
+  - `app.css` global en capas (`reset, base, layout, components, utilities`); sin Tailwind ni CSS Modules, sin fuentes ni assets remotos
+  - Componentes compartidos: `Button`, `Input`, `Select`, `Card`, `Table`, `Badge`, `EstadoBadge`, `EmptyState`, `ErrorBanner`, `Loading`, `PageHeader`
+  - Shells: backoffice con rail de 232 px y topbar móvil; público sobrio con skip link y `#contenido`
+  - Aplicado a las 9 rutas: `/`, `/reservar`, `/reservar/gestion/:token`, `/privacidad`, `/agenda`, `/reportes`, `/usuarios`, `/auditoria` y 404
+  - Navegación client-side sin recarga (`navigation.tsx`) para conservar la sesión en memoria (R-03); `goBack` con historial propio y fallback a la portada
+  - Login y layout de autenticación centrados; portada con hero “Clínica Odontológica”, doble entrada y semáforo verde/rojo de API, base de datos y Redis
+  - Accesibilidad WCAG 2.2 AA: foco visible, un `h1` por ruta, `th[scope]`, regiones de tabla nombradas, `prefers-reduced-motion` e impresión de reportes
+  - Responsive verificado en 320/640/900/1024/1280
+  - Fuera de alcance: modo oscuro y marca comercial definitiva
+- **Tests**: `npm test` (199), `npm run typecheck`, `npm run build`; matriz de 11 requirements / 41 escenarios; capturas 320/900/1280 en `docs/skills-mcp/evidencias/c-17/`
+- **Dependencias**: C-16
+- **Governance**: MEDIO
+- **Leer antes**:
+  - `docs/design-system.md` — Tokens, componentes, shells, accesibilidad e impresión
+  - `knowledge-base/08_arquitectura_propuesta.md` — Frontend React + Vite
+  - `AGENTS.md` §R-03 (sesión en memoria) y §R-07 (frontend estricto)

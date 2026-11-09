@@ -1,0 +1,4 @@
+forward :: pathname=/reportes marker=alive session=admin@clinica.test navigationEntries=1
+back :: pathname=/agenda marker=alive session=admin@clinica.test
+forward-again :: pathname=/reportes marker=alive
+captura :: final-navegacion-sin-recarga.png

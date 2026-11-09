@@ -1,0 +1,75 @@
+# C-17 — resumen de verificación (slice 3)
+
+## Comandos
+
+| Comando | Archivo | Resultado |
+|---|---|---|
+| `npm test` | `npm-test.txt` | 31 archivos, **199/199 tests en verde** |
+| `npm run typecheck` | `npm-typecheck.txt` | `tsc --noEmit` sin errores |
+| `npm run build` | `npm-build.txt` | build OK; CSS 18.91 kB / JS 183.39 kB |
+
+## Contrato preservado
+
+- **64 tests preexistentes**: siguen en verde dentro de los 199 totales (slice 1/2
+  agregaron 54 y 21; slice 3 agregó 26; navegación 9; login/layout 10; aceptación
+  visual 15).
+- **Sesión en memoria**: `features/auth/session.ts` y `session.test.ts` no aparecen
+  en `git diff`; `getSession()`/`logout()`/`login()` intactos, sin `localStorage`.
+- **Llamadas de red**: `features/*/api.ts` y `shared/api/client.ts` no aparecen en
+  `git diff`; los tests de API y de páginas siguen afirmando los mismos endpoints,
+  métodos y cuerpos.
+- **Textos/roles observables**: los page tests conservan `Reservar`, `Turno
+  reservado`, `Gestionar mi turno`, `Cargando…`, `Turno cancelado.`, `Turnos
+  totales: 99`, `Estado: pendiente`, `Descargar ZIP`, `Total: 120`, `Nombre`,
+  `Email`, `Contraseña`, `Crear usuario`, `Guardar roles`, `Desactivar`,
+  `activo`/`inactivo`, `Anterior`/`Siguiente` y el `h1` Backoffice en `/`.
+
+## Accesibilidad y responsive
+
+- `src/a11y.test.tsx`: 14 casos (9 rutas + 3 tablas + login + foco).
+- `src/styles/responsive.test.ts`: 9 casos (cortes 640/900/1024/1280, sin
+  `overflow-x` de página, rail/topbar, límite 1280, objetivos táctiles).
+- `src/styles/motion.test.ts`: 3 casos (sin `@keyframes`/`infinite`,
+  `prefers-reduced-motion`, duraciones 120/180 ms).
+- `final/mediciones.txt`: 9 rutas × 3 anchos sin overflow; menú visible solo por
+  debajo de 1024 px; tablas en región; objetivos 44/24 px.
+- `final/teclado.txt`: primer Tab = “Saltar al contenido” en `/` y `/agenda`.
+
+## Navegación interna
+
+- `src/shared/navigation.test.tsx` (7) + `src/navigation.test.tsx` (2): click
+  normal navega sin recarga, modificadores y `target="_blank"` no se interceptan,
+  `popstate` funciona y Agenda→Reportes conserva `getSession()`.
+- Navegador real: `final/navegacion.txt` (marcador JS intacto, una sola entrada de
+  navegación y sesión activa) + `final/final-navegacion-sin-recarga.png`.
+- Enlaces nativos restantes: skip link `#contenido` y `gestion_url` de la API.
+
+## Login y layout de autenticación
+
+- `src/features/auth/LoginForm.test.tsx` (2): `main.ds-auth`, panel/card, labels
+  exactos, botón `Ingresar` y error 401 verbatim con `aria-invalid`/`aria-describedby`.
+- `src/styles/auth.test.ts` (4): `.ds-auth` centrado, panel 440 px, shell
+  `.ds-shell--signed-out` y `body` sin `overflow-x`.
+- `routes.test.tsx` (+4): login centrado y sin rail en `/agenda`, `/reportes`,
+  `/usuarios` y `/auditoria`.
+- Navegador real: `final/login-layout.txt` (panel 440 px, márgenes simétricos,
+  alto centrado y `overflow=no` a 320/900/1280) y capturas `final-login-*`.
+
+## Ajustes de aceptación visual
+
+- `HomePage.test.tsx`, `ApiStatus.test.tsx`, `styles/home.test.ts` y
+  `styles/reading.test.ts` (10 tests nuevos) + extensión de navegación/privacidad
+  (5) cubren portada, semáforo, lectura centrada y `goBack`.
+- `final/home-layout.txt`: 9 rutas a 1280 sin overflow, columna de portada de
+  704 px (44 rem) y lectura de 587 px, márgenes simétricos, offset superior 34 px.
+- Capturas: `final-home-{320,900,1280}.png`, `final-home-error-900.png` y
+  `final-privacidad-{320,900,1280}.png`.
+- Título público aprobado: `h1` “Clínica Odontológica” + eyebrow “Turnos online”
+  (`fix-titulo-portada.md`); “Backoffice” queda solo en el login.
+
+## Alcance del diff
+
+`git diff --name-only` solo contiene `frontend/` y `docs/`; los artefactos del
+change están en `openspec/changes/c-17-frontend-design-system/` (untracked). No hay
+cambios en `backend/`, `CHANGES.md`, `docker-compose*.yml`, `knowledge-base/` ni en
+specs existentes.

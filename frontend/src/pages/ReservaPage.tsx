@@ -11,6 +11,15 @@ import {
   type ReservaResponse,
   type SlotPublico,
 } from "../features/reserva/api";
+import { Button } from "../shared/ui/Button";
+import { Link } from "../shared/navigation";
+import { Card } from "../shared/ui/Card";
+import { EmptyState } from "../shared/ui/EmptyState";
+import { ErrorBanner } from "../shared/ui/ErrorBanner";
+import { Input } from "../shared/ui/Input";
+import { Loading } from "../shared/ui/Loading";
+import { PageHeader } from "../shared/ui/PageHeader";
+import { Select } from "../shared/ui/Select";
 
 const FECHA_INICIAL = "2026-11-09";
 
@@ -69,26 +78,36 @@ export function ReservaPage(): React.JSX.Element {
   if (catalogo === null) {
     return (
       <main>
-        <h1>Reservar turno</h1>
-        {error !== null ? <p role="alert">{error}</p> : <p>Cargando…</p>}
+        <PageHeader title="Reservar turno" />
+        {error !== null ? <ErrorBanner message={error} /> : <Loading />}
       </main>
     );
   }
 
+  const hayProfesional = profesionalId !== "";
+
   return (
     <main>
-      <h1>Reservar turno en {catalogo.nombre}</h1>
-      <p>{catalogo.politica_cancelacion}</p>
-      <p>{catalogo.politica_sena}</p>
-      <p>
-        <a href="/privacidad">Política de privacidad</a>
-      </p>
+      <PageHeader
+        title={`Reservar turno en ${catalogo.nombre}`}
+        description="Elegí profesional, prestación y fecha; después confirmá tus datos."
+      />
+      <div className="ds-prose">
+        <p>{catalogo.politica_cancelacion}</p>
+        <p>{catalogo.politica_sena}</p>
+        <p>
+          <Link to="/privacidad">Política de privacidad</Link>
+        </p>
+      </div>
 
-      <label>
-        Profesional
-        <select
+      <section aria-label="Datos del turno" className="ds-booking-filters">
+        <Select
+          label="Profesional"
           value={profesionalId}
-          onChange={(event) => setProfesionalId(event.target.value)}
+          onChange={(event) => {
+            setProfesionalId(event.target.value);
+            setInicio("");
+          }}
         >
           <option value="">Elegí un profesional</option>
           {catalogo.profesionales.map((profesional) => (
@@ -96,12 +115,10 @@ export function ReservaPage(): React.JSX.Element {
               {profesional.matricula} ({profesional.especialidades.join(", ")})
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
 
-      <label>
-        Prestación
-        <select
+        <Select
+          label="Prestación"
           value={prestacionId}
           onChange={(event) => setPrestacionId(event.target.value)}
         >
@@ -111,83 +128,96 @@ export function ReservaPage(): React.JSX.Element {
               {prestacion.nombre} ({prestacion.duracion_min} min)
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
 
-      <label>
-        Fecha
-        <input
+        <Input
+          label="Fecha"
           type="date"
           value={fecha}
           onChange={(event) => setFecha(event.target.value)}
         />
-      </label>
+      </section>
 
       <section aria-label="Horarios disponibles">
         <h2>Horarios</h2>
-        {slots.length === 0 ? <p>No hay horarios disponibles.</p> : null}
-        <ul>
-          {slots.map((slot) => (
-            <li key={slot.inicio}>
-              <button
-                type="button"
-                aria-pressed={inicio === slot.inicio}
-                onClick={() => setInicio(slot.inicio)}
-              >
-                {slot.inicio.slice(11, 16)}
-              </button>
-            </li>
-          ))}
-        </ul>
+        {!hayProfesional ? (
+          <p>Elegí un profesional y una fecha para ver los horarios.</p>
+        ) : null}
+        {hayProfesional && slots.length === 0 ? (
+          <EmptyState
+            title="No hay horarios disponibles."
+            description="Probá con otra fecha o elegí otro profesional."
+          />
+        ) : null}
+        {slots.length > 0 ? (
+          <ul className="ds-slot-grid" aria-label="Horarios disponibles">
+            {slots.map((slot) => {
+              const hora = slot.inicio.slice(11, 16);
+              const elegido = inicio === slot.inicio;
+              return (
+                <li key={slot.inicio}>
+                  <Button
+                    variant={elegido ? "primary" : "secondary"}
+                    size="sm"
+                    aria-pressed={elegido}
+                    onClick={() => setInicio(slot.inicio)}
+                  >
+                    {hora}
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
       </section>
 
-      <form onSubmit={reservar}>
-        <label>
-          Nombre
-          <input
+      <Card title="Tus datos" description="No pedimos aceptación de la política.">
+        <form onSubmit={reservar} className="ds-form-grid">
+          <Input
+            label="Nombre"
             value={nombre}
             onChange={(event) => setNombre(event.target.value)}
             required
           />
-        </label>
-        <label>
-          Apellido
-          <input
+          <Input
+            label="Apellido"
             value={apellido}
             onChange={(event) => setApellido(event.target.value)}
             required
           />
-        </label>
-        <label>
-          DNI
-          <input
+          <Input
+            label="DNI"
             value={dni}
             onChange={(event) => setDni(event.target.value)}
             required
           />
-        </label>
-        <label>
-          Teléfono WhatsApp
-          <input
+          <Input
+            label="Teléfono WhatsApp"
+            type="tel"
             value={telefono}
             onChange={(event) => setTelefono(event.target.value)}
             required
           />
-        </label>
-        <button type="submit" disabled={inicio === ""}>
-          Reservar
-        </button>
-      </form>
+          <Button
+            type="submit"
+            className="ds-form-grid__full"
+            disabled={inicio === ""}
+          >
+            Reservar
+          </Button>
+        </form>
+      </Card>
 
-      {error !== null ? <p role="alert">{error}</p> : null}
+      {error !== null ? <ErrorBanner message={error} /> : null}
 
       {reserva !== null ? (
-        <section aria-label="Reserva confirmada">
-          <h2>Turno reservado</h2>
+        <Card title="Turno reservado">
           <p>Estado: {reserva.estado}</p>
           <p>Seña: {reserva.sena.estado}</p>
-          <a href={reserva.gestion_url}>Gestionar mi turno</a>
-        </section>
+          <p>
+            <a href={reserva.gestion_url}>Gestionar mi turno</a>
+          </p>
+        </Card>
       ) : null}
     </main>
   );

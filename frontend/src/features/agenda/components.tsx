@@ -1,5 +1,7 @@
 /** Visual cards for appointments and blocks (C-08). */
 
+import { Badge } from "../../shared/ui/Badge";
+import { EstadoBadge } from "../../shared/ui/EstadoBadge";
 import { horaDe } from "./calendar";
 import type { Bloqueo, Turno } from "./api";
 
@@ -32,9 +34,11 @@ export function TurnoCard({
       }
     >
       <span className="turno-hora">{horaDe(turno.inicio)}</span>
-      <span>{turno.estado}</span>
+      <EstadoBadge estado={turno.estado} />
       {turno.es_sobreturno ? (
-        <span className="turno-sobreturno">Sobreturno</span>
+        <Badge tone="warning" className="turno-sobreturno">
+          Sobreturno
+        </Badge>
       ) : null}
     </div>
   );

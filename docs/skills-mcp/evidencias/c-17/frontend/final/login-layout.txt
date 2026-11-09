@@ -1,0 +1,11 @@
+login agenda 320 :: {"viewport":320,"scrollWidth":320,"panelWidth":288,"panelLeft":16,"panelRight":16,"panelTopGap":236,"panelBottomGap":236,"authWidth":288,"contentWidth":320,"contentLeft":0,"contentRight":0}
+login agenda 900 :: {"viewport":900,"scrollWidth":900,"panelWidth":440,"panelLeft":230,"panelRight":230,"panelTopGap":236,"panelBottomGap":236,"authWidth":848,"contentWidth":900,"contentLeft":0,"contentRight":0}
+login agenda 1280 :: {"viewport":1280,"scrollWidth":1280,"panelWidth":440,"panelLeft":420,"panelRight":420,"panelTopGap":236,"panelBottomGap":236,"authWidth":1200,"contentWidth":1280,"contentLeft":0,"contentRight":0}
+login reportes 1280 :: {"viewport":1280,"scrollWidth":1280,"panelWidth":440,"panelLeft":420,"panelRight":420,"panelTopGap":236,"panelBottomGap":236,"authWidth":1200,"contentWidth":1280,"contentLeft":0,"contentRight":0}
+login usuarios 1280 :: {"viewport":1280,"scrollWidth":1280,"panelWidth":440,"panelLeft":420,"panelRight":420,"panelTopGap":236,"panelBottomGap":236,"authWidth":1200,"contentWidth":1280,"contentLeft":0,"contentRight":0}
+login auditoria 1280 :: {"viewport":1280,"scrollWidth":1280,"panelWidth":440,"panelLeft":420,"panelRight":420,"panelTopGap":236,"panelBottomGap":236,"authWidth":1200,"contentWidth":1280,"contentLeft":0,"contentRight":0}
+contenedor público portada 1280 :: {"contentWidth":1280,"contentLeft":0,"contentRight":0,"pageScrollWidth":1280}
+contenedor público reservar 1280 :: {"contentWidth":1280,"contentLeft":0,"contentRight":0,"pageScrollWidth":1280}
+contenedor público privacidad 1280 :: {"contentWidth":1280,"contentLeft":0,"contentRight":0,"pageScrollWidth":1280}
+contenedor público 404 1280 :: {"contentWidth":1280,"contentLeft":0,"contentRight":0,"pageScrollWidth":1280}
+login error 900 :: API 401: {"detail":"Credenciales inválidas"}

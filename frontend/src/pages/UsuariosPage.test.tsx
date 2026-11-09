@@ -293,4 +293,57 @@ describe("UsuariosPage", () => {
     expect(alerta.textContent).toContain("422");
     expect(alerta.textContent).toContain("Error de validación del backend");
   });
+
+  it("agrupa el alta en una Card y la tabla en una región desplazable", async () => {
+    await entrar();
+    render(<UsuariosPage />);
+    await screen.findByText("Ana Demo");
+
+    expect(
+      screen.getByRole("region", { name: "Nuevo usuario" }),
+    ).toBeTruthy();
+    const tabla = screen.getByRole("region", { name: "Usuarios" });
+    expect(within(tabla).getByRole("table")).toBeTruthy();
+
+    const activo = within(tabla).getByText("activo", {
+      selector: ".ds-badge",
+    });
+    expect(activo.className).toContain("ds-badge--success");
+
+    const fila = screen.getByText("ana@test").closest("tr");
+    expect(fila).not.toBeNull();
+    expect(
+      within(fila as HTMLElement).getByRole("group", {
+        name: /acciones/i,
+      }),
+    ).toBeTruthy();
+  });
+
+  it("muestra un vacío explicativo cuando no hay usuarios", async () => {
+    usuarios = [];
+    await entrar();
+    render(<UsuariosPage />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 2,
+        name: /sin usuarios/i,
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("oculta la escritura si la API responde 403 aunque el rol sea admin", async () => {
+    listStatus = 403;
+    await entrar(["administrador"]);
+    render(<UsuariosPage />);
+
+    const alerta = await screen.findByRole("alert");
+    expect(alerta.textContent).toContain("403");
+    expect(
+      screen.queryByRole("button", { name: "Crear usuario" }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Guardar roles" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Desactivar" })).toBeNull();
+  });
 });

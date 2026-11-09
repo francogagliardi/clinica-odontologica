@@ -1,19 +1,28 @@
 /** Functional audit viewer: filters, paginated table and no write surface.
  *
- * The screen is read-only (C-17 keeps visual design out of scope); every
- * 401/403/404/422 is presented verbatim and no local rule filters the rows.
+ * The screen is read-only: every 401/403/404/422 is presented verbatim and no
+ * local rule filters the rows.
  */
 
 import { useEffect, useState } from "react";
 
 import { ApiError, describeFailure } from "../shared/api/client";
 import { LoginForm } from "../features/auth/LoginForm";
-import { logout, useSession } from "../features/auth/session";
+import { useSession } from "../features/auth/session";
 import {
   fetchAuditoria,
   type AuditoriaResponse,
   type FiltrosAuditoria,
 } from "../features/auditoria/api";
+import { Button } from "../shared/ui/Button";
+import { Card } from "../shared/ui/Card";
+import { EmptyState } from "../shared/ui/EmptyState";
+import { ErrorBanner } from "../shared/ui/ErrorBanner";
+import { Input } from "../shared/ui/Input";
+import { Loading } from "../shared/ui/Loading";
+import { PageHeader } from "../shared/ui/PageHeader";
+import { Select } from "../shared/ui/Select";
+import { Table } from "../shared/ui/Table";
 
 const FILTROS_VACIOS: FiltrosAuditoria = {
   usuarioId: "",
@@ -89,67 +98,57 @@ export function AuditoriaPage(): React.JSX.Element {
 
   return (
     <main>
-      <h1>Auditoría</h1>
-      <button type="button" onClick={logout}>
-        Salir
-      </button>
+      <PageHeader
+        title="Auditoría"
+        description="Historial de solo lectura con usuario, IP y dispositivo."
+      />
 
-      {error !== null ? <p role="alert">{error}</p> : null}
-      {cargando ? <p>Cargando…</p> : null}
+      {error !== null ? <ErrorBanner message={error} /> : null}
+      {cargando ? <Loading /> : null}
 
       {puedeLeer ? (
         <>
-          <form onSubmit={buscar}>
-            <label>
-              Usuario (id)
-              <input
+          <Card title="Filtros">
+            <form onSubmit={buscar} className="ds-filter-grid">
+              <Input
+                label="Usuario (id)"
                 value={filtros.usuarioId ?? ""}
                 onChange={(event) =>
                   setFiltros({ ...filtros, usuarioId: event.target.value })
                 }
               />
-            </label>
-            <label>
-              Entidad
-              <input
+              <Input
+                label="Entidad"
                 value={filtros.entidad ?? ""}
                 onChange={(event) =>
                   setFiltros({ ...filtros, entidad: event.target.value })
                 }
               />
-            </label>
-            <label>
-              Acción
-              <input
+              <Input
+                label="Acción"
                 value={filtros.accion ?? ""}
                 onChange={(event) =>
                   setFiltros({ ...filtros, accion: event.target.value })
                 }
               />
-            </label>
-            <label>
-              Desde
-              <input
+              <Input
+                label="Desde"
                 type="date"
                 value={filtros.desde ?? ""}
                 onChange={(event) =>
                   setFiltros({ ...filtros, desde: event.target.value })
                 }
               />
-            </label>
-            <label>
-              Hasta
-              <input
+              <Input
+                label="Hasta"
                 type="date"
                 value={filtros.hasta ?? ""}
                 onChange={(event) =>
                   setFiltros({ ...filtros, hasta: event.target.value })
                 }
               />
-            </label>
-            <label>
-              Límite
-              <select
+              <Select
+                label="Límite"
                 value={filtros.limite}
                 onChange={(event) =>
                   setFiltros({
@@ -160,57 +159,66 @@ export function AuditoriaPage(): React.JSX.Element {
               >
                 <option value={100}>100</option>
                 <option value={500}>500</option>
-              </select>
-            </label>
-            <button type="submit">Buscar</button>
-          </form>
+              </Select>
+              <Button type="submit">Buscar</Button>
+            </form>
+          </Card>
 
           {datos !== null ? (
             <>
               <p>Total: {total}</p>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Usuario</th>
-                    <th>Email</th>
-                    <th>Acción</th>
-                    <th>Entidad</th>
-                    <th>Entidad ID</th>
-                    <th>IP</th>
-                    <th>Dispositivo</th>
-                    <th>Fecha</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {datos.filas.map((fila) => (
-                    <tr key={fila.id}>
-                      <td>{fila.usuario_id ?? "sistema"}</td>
-                      <td>{fila.usuario_email ?? ""}</td>
-                      <td>{fila.accion}</td>
-                      <td>{fila.entidad}</td>
-                      <td>{fila.entidad_id}</td>
-                      <td>{fila.ip ?? ""}</td>
-                      <td>{fila.dispositivo ?? ""}</td>
-                      <td>{fila.timestamp}</td>
+              {datos.filas.length === 0 ? (
+                <EmptyState
+                  title="Sin registros"
+                  description="No hay eventos para los filtros elegidos."
+                />
+              ) : (
+                <Table label="Auditoría">
+                  <thead>
+                    <tr>
+                      <th scope="col">Usuario</th>
+                      <th scope="col">Email</th>
+                      <th scope="col">Acción</th>
+                      <th scope="col">Entidad</th>
+                      <th scope="col">Entidad ID</th>
+                      <th scope="col">IP</th>
+                      <th scope="col">Dispositivo</th>
+                      <th scope="col">Fecha</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div>
-                <button
-                  type="button"
+                  </thead>
+                  <tbody>
+                    {datos.filas.map((fila) => (
+                      <tr key={fila.id}>
+                        <td>{fila.usuario_id ?? "sistema"}</td>
+                        <td>{fila.usuario_email ?? ""}</td>
+                        <td>{fila.accion}</td>
+                        <td>{fila.entidad}</td>
+                        <td>{fila.entidad_id}</td>
+                        <td>{fila.ip ?? ""}</td>
+                        <td>{fila.dispositivo ?? ""}</td>
+                        <td>{fila.timestamp}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              )}
+              <div className="ds-pagination">
+                <Button
+                  variant="secondary"
+                  size="sm"
                   disabled={offset === 0}
                   onClick={() => setOffset(Math.max(0, offset - limite))}
                 >
                   Anterior
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
                   disabled={offset + limite >= total}
                   onClick={() => setOffset(offset + limite)}
                 >
                   Siguiente
-                </button>
+                </Button>
               </div>
             </>
           ) : null}
