@@ -4,7 +4,10 @@ Transaction boundaries belong to `UnitOfWork`. There is deliberately no
 physical-delete operation: business entities are soft-deleted only.
 """
 
+from __future__ import annotations
+
 import uuid
+from collections.abc import Sequence
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Generic, TypeVar
@@ -13,6 +16,7 @@ from sqlalchemy import delete, func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.acceso import CLAVE_BLOQUEO_ACCESO, LIMITE_DEFAULT
 from app.domain.turnos import ESTADOS_ACTIVOS
 from app.models import (
     Adjunto,
@@ -48,6 +52,7 @@ from app.models import (
     Sillon,
     Turno,
     Usuario,
+    UsuarioRol,
 )
 from app.models.base import AuditMixin
 
@@ -109,6 +114,30 @@ class ConsultorioRepository(BaseRepository[Consultorio]):
 class RolRepository(BaseRepository[Rol]):
     model = Rol
 
+    async def list_activos(self) -> list[Rol]:
+        """The fixed catalogue: active, non-deleted roles by name."""
+        result = await self._session.scalars(
+            select(Rol)
+            .where(Rol.deleted_at.is_(None), Rol.is_active.is_(True))
+            .order_by(Rol.nombre)
+        )
+        return list(result)
+
+    async def get_by_nombres(self, nombres: Sequence[str]) -> list[Rol]:
+        """Resolve catalogue names to active roles (caller validates them)."""
+        if not nombres:
+            return []
+        result = await self._session.scalars(
+            select(Rol)
+            .where(
+                Rol.nombre.in_(tuple(nombres)),
+                Rol.deleted_at.is_(None),
+                Rol.is_active.is_(True),
+            )
+            .order_by(Rol.nombre)
+        )
+        return list(result)
+
 
 class UsuarioRepository(BaseRepository[Usuario]):
     model = Usuario
@@ -130,6 +159,102 @@ class UsuarioRepository(BaseRepository[Usuario]):
         result = await self._session.scalars(statement)
         return result.first()
 
+    async def list_all(
+        self, *, incluir_inactivos: bool = False
+    ) -> list[Usuario]:
+        """List accounts by name; deactivated ones only when asked (C-16).
+
+        Logical deactivation is the reversible `is_active=false` + `deleted_at`
+        state the C-02 CHECK enforces, so `incluir_inactivos` returns those rows
+        instead of hiding them forever. There is no physical delete.
+        """
+        statement = select(Usuario).order_by(Usuario.nombre, Usuario.email)
+        if not incluir_inactivos:
+            statement = statement.where(
+                Usuario.is_active.is_(True), Usuario.deleted_at.is_(None)
+            )
+        result = await self._session.scalars(statement)
+        return list(result)
+
+    async def reemplazar_roles(
+        self, usuario_id: uuid.UUID, rol_ids: Sequence[uuid.UUID]
+    ) -> None:
+        """Replace the whole role set atomically inside the caller's txn (D3).
+
+        Duplicates and already-linked roles are ignored, so a repeated `PUT`
+        keeps one link per role. Callers must count administrators afterwards
+        in the same transaction (design D2).
+        """
+        await self._session.execute(
+            delete(UsuarioRol).where(UsuarioRol.usuario_id == usuario_id)
+        )
+        unicos = list(dict.fromkeys(rol_ids))
+        if unicos:
+            await self._session.execute(
+                insert(UsuarioRol)
+                .values(
+                    [
+                        {"usuario_id": usuario_id, "rol_id": rol_id}
+                        for rol_id in unicos
+                    ]
+                )
+                .on_conflict_do_nothing(
+                    index_elements=["usuario_id", "rol_id"]
+                )
+            )
+        await self._session.flush()
+        usuario = await self.get(usuario_id)
+        if usuario is not None:
+            await self._session.refresh(usuario, ["roles"])
+
+    async def contar_administradores_activos(self) -> int:
+        """Active accounts holding the active `administrador` role (D2)."""
+        total = await self._session.scalar(
+            select(func.count(func.distinct(UsuarioRol.usuario_id)))
+            .join(Usuario, Usuario.id == UsuarioRol.usuario_id)
+            .join(Rol, Rol.id == UsuarioRol.rol_id)
+            .where(
+                Usuario.is_active.is_(True),
+                Usuario.deleted_at.is_(None),
+                Rol.nombre == "administrador",
+                Rol.is_active.is_(True),
+                Rol.deleted_at.is_(None),
+            )
+        )
+        return int(total or 0)
+
+    async def emails_por_ids(
+        self, usuario_ids: Sequence[uuid.UUID]
+    ) -> dict[uuid.UUID, str]:
+        """Resolve historical emails, soft-deleted users included (C-16).
+
+        The audit viewer must keep showing who did what after a logical baja,
+        so this lookup deliberately does not filter `deleted_at`.
+        """
+        ids = list(dict.fromkeys(usuario_ids))
+        if not ids:
+            return {}
+        rows = await self._session.execute(
+            select(Usuario.id, Usuario.email).where(
+                Usuario.id.in_(tuple(ids))
+            )
+        )
+        return {usuario_id: email for usuario_id, email in rows.all()}
+
+    async def lock_acceso(self) -> None:
+        """Take the global transaction lock that serializes access mutations."""
+        await self._session.execute(
+            text("SELECT pg_advisory_xact_lock(:clave)"),
+            {"clave": CLAVE_BLOQUEO_ACCESO},
+        )
+
+    async def reactivar(self, usuario: Usuario) -> Usuario:
+        """Reverse a logical deactivation without touching its history."""
+        usuario.is_active = True
+        usuario.deleted_at = None
+        await self._session.flush()
+        return usuario
+
 
 class AuditoriaRepository:
     """Append-only access: add/get/list. No update, no delete, no soft delete."""
@@ -148,6 +273,53 @@ class AuditoriaRepository:
     async def list(self) -> list[RegistroAuditoria]:
         result = await self._session.scalars(select(RegistroAuditoria))
         return list(result)
+
+    async def list_filtrado(
+        self,
+        *,
+        usuario_id: uuid.UUID | None = None,
+        entidad: str | None = None,
+        accion: str | None = None,
+        desde: datetime | None = None,
+        hasta: datetime | None = None,
+        limite: int = LIMITE_DEFAULT,
+        offset: int = 0,
+    ) -> tuple[list[RegistroAuditoria], int]:
+        """Viewer query: filters, stable order and total before pagination.
+
+        Boundaries are inclusive; the API converts the UTC-3 dates before
+        calling this method. `timestamp DESC, id DESC` is the order the
+        `0015_admin_auditoria` index sustains (design D5/D11).
+        """
+        condiciones = []
+        if usuario_id is not None:
+            condiciones.append(RegistroAuditoria.usuario_id == usuario_id)
+        if entidad is not None:
+            condiciones.append(RegistroAuditoria.entidad == entidad)
+        if accion is not None:
+            condiciones.append(RegistroAuditoria.accion == accion)
+        if desde is not None:
+            condiciones.append(RegistroAuditoria.timestamp >= desde)
+        if hasta is not None:
+            condiciones.append(RegistroAuditoria.timestamp <= hasta)
+
+        total = await self._session.scalar(
+            select(func.count())
+            .select_from(RegistroAuditoria)
+            .where(*condiciones)
+        )
+        statement = (
+            select(RegistroAuditoria)
+            .where(*condiciones)
+            .order_by(
+                RegistroAuditoria.timestamp.desc(),
+                RegistroAuditoria.id.desc(),
+            )
+            .limit(limite)
+            .offset(offset)
+        )
+        result = await self._session.scalars(statement)
+        return list(result), int(total or 0)
 
 
 class ProfesionalRepository(BaseRepository[Profesional]):

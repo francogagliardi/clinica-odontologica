@@ -12,8 +12,11 @@ from app.models import (
     ObraSocial,
     Paciente,
     Prestacion,
+    Profesional,
+    ProfesionalSillon,
     Rol,
     Sillon,
+    Turno,
     Usuario,
     UsuarioRol,
 )
@@ -30,9 +33,11 @@ from app.seed import (
 from tests.integration.helpers import run
 
 
-async def _seed(session_factory, password: str) -> None:
+async def _seed(
+    session_factory, password: str, demo_password: str = "demo-secret-456"
+) -> None:
     async with session_factory() as session, session.begin():
-        await run_seed(session, password)
+        await run_seed(session, password, demo_password)
 
 
 async def _count(session_factory, model) -> int:
@@ -88,7 +93,13 @@ def test_cli_sin_variable_de_entorno_aborta(monkeypatch) -> None:
     """Business error: the CLI names the missing variable before connecting."""
 
     monkeypatch.delenv("SEED_ADMIN_PASSWORD", raising=False)
+    monkeypatch.setenv("SEED_DEMO_PASSWORD", "demo-secret-456")
     with pytest.raises(RuntimeError, match="SEED_ADMIN_PASSWORD"):
+        asyncio.run(main())
+
+    monkeypatch.setenv("SEED_ADMIN_PASSWORD", "demo-secret-123")
+    monkeypatch.delenv("SEED_DEMO_PASSWORD", raising=False)
+    with pytest.raises(RuntimeError, match="SEED_DEMO_PASSWORD"):
         asyncio.run(main())
 
 
@@ -101,14 +112,19 @@ def test_seed_es_idempotente(session_factory) -> None:
 
         assert await _count(session_factory, Rol) == len(ROLES)
         assert await _count(session_factory, Consultorio) == 1
-        assert await _count(session_factory, Usuario) == 1
-        assert await _count(session_factory, UsuarioRol) == 1
+        assert await _count(session_factory, Usuario) == 5
+        assert await _count(session_factory, UsuarioRol) == 5
+        assert await _count(session_factory, Profesional) == 1
+        assert await _count(session_factory, ProfesionalSillon) == len(
+            SILLONES_DEMO
+        )
         assert await _count(session_factory, Sillon) == len(SILLONES_DEMO)
         assert await _count(session_factory, Prestacion) == len(
             PRESTACIONES_DEMO
         )
         assert await _count(session_factory, ObraSocial) == 1
         assert await _count(session_factory, Paciente) == len(PACIENTES_DEMO)
+        assert await _count(session_factory, Turno) == 3
 
     run(scenario())
 
@@ -247,13 +263,18 @@ def test_seed_concurrente_no_falla(session_factory) -> None:
 
         assert await _count(session_factory, Rol) == len(ROLES)
         assert await _count(session_factory, Consultorio) == 1
-        assert await _count(session_factory, Usuario) == 1
-        assert await _count(session_factory, UsuarioRol) == 1
+        assert await _count(session_factory, Usuario) == 5
+        assert await _count(session_factory, UsuarioRol) == 5
+        assert await _count(session_factory, Profesional) == 1
+        assert await _count(session_factory, ProfesionalSillon) == len(
+            SILLONES_DEMO
+        )
         assert await _count(session_factory, Sillon) == len(SILLONES_DEMO)
         assert await _count(session_factory, Prestacion) == len(
             PRESTACIONES_DEMO
         )
         assert await _count(session_factory, ObraSocial) == 1
         assert await _count(session_factory, Paciente) == len(PACIENTES_DEMO)
+        assert await _count(session_factory, Turno) == 3
 
     run(scenario())

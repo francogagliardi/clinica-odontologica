@@ -80,6 +80,9 @@ export function ReservaPage(): React.JSX.Element {
       <h1>Reservar turno en {catalogo.nombre}</h1>
       <p>{catalogo.politica_cancelacion}</p>
       <p>{catalogo.politica_sena}</p>
+      <p>
+        <a href="/privacidad">Política de privacidad</a>
+      </p>
 
       <label>
         Profesional

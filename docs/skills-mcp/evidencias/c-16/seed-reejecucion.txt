@@ -1,0 +1,4 @@
+﻿seed_3_exit=0
+antes=5|5|1|4|4
+despues=5|5|1|4|4
+iguales=True

@@ -1,0 +1,6 @@
+﻿worker-recordatorios once exit=0 out=
+worker-whatsapp once exit=0 out=
+worker-arca once exit=0 out=
+worker-reportes once exit=0 out=
+exportacion estado=lista tamano=13421
+zip bytes=13421

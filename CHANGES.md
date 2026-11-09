@@ -418,13 +418,15 @@ Paso │ Agente A (Backend Core)      │ Agente B (Backend Aux/Integ.)    │ A
 ---
 
 ### [C-16] `admin-roles-auditoria-deploy`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado 2026-11-08 (archivado en `openspec/changes/archive/`) — 1341 tests backend + 64 frontend
 - **Scope**: Administración de acceso + endurecimiento + demo local entregable (US-040, DD-12)
-  - CRUD `/usuarios, /roles` aplicando la matriz RBAC de `03_actores_y_roles.md` en API + UI (nunca solo en UI); visor de auditoría solo-lectura para rol auditor (RN-SE-02)
-  - Paciente vía enlace solo opera sus propios turnos/datos dentro del plazo (RN-SE-01); consentimiento + política de privacidad publicada, respaldo cifrado, alcance legal validado con asesoramiento (RN-SE-04)
-  - Compose demo local como default (api Uvicorn + db + redis + frontend servido; túnel para webhooks MP/WhatsApp); `.env` documentados; alternativa nube free (P-05)
-  - Seed demo completo: admin + odontólogo + recepcionista, consultorio 2 sillones, prestaciones, "OS Demo", pacientes y turnos ficticios
-  - Tests: matriz RBAC e2e por rol (403 donde corresponde), auditor no escribe, paciente no ve datos ajenos, `docker compose up` + flujo demo verde
+  - CRUD `/usuarios, /roles` con RBAC de la matriz en API + UI; roles fijos, último admin protegido (409 con advisory lock), contraseñas y emails validados, auditoría append-only
+  - Visor `/auditoria` solo lectura para administrador/auditor, con filtros y paginación; UI funcional
+  - Paciente vía enlace solo sus turnos/datos (token de un solo uso, sin PII ni cruces); política de privacidad versionada publicada (sin bloquear la reserva); respaldo cifrado AES-256 con verificación
+  - Compose demo local: api, frontend, db, redis + 4 workers por defecto; `backup` bajo `tools`; runbook `docs/demo.md` con túnel
+  - Seed demo completo e idempotente: 5 roles, admin + 4 roles demo, profesional, 2 sillones, prestaciones, OS Demo, 3 pacientes y 3 turnos
+  - Migración `0015_admin_auditoria`: índices del visor de auditoría
+  - Tests: matriz RBAC e2e, auditor no escribe, paciente no ve datos ajenos, `docker compose up` + flujo demo verde, backup/verify
 - **Dependencias**: C-03, C-15
 - **Governance**: ALTO
 - **Leer antes**:

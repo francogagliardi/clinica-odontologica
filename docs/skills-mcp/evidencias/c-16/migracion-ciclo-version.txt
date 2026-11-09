@@ -1,0 +1,8 @@
+﻿version=0015_admin_auditoria
+indexes=
+ix_registro_auditoria_accion_timestamp
+ix_registro_auditoria_entidad
+ix_registro_auditoria_entidad_timestamp
+ix_registro_auditoria_timestamp
+ix_registro_auditoria_usuario_timestamp
+pk_registro_auditoria

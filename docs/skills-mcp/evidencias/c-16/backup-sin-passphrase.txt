@@ -1,0 +1,2 @@
+﻿backup_sin_passphrase_exit=1
+ Container c16smoke-db-1 Running   Container c16smoke-db-1 Waiting   Container c16smoke-db-1 Healthy   Container c16smoke-backup-run-e34402b53225 Creating   Container c16smoke-backup-run-e34402b53225 Created  BACKUP_PASSPHRASE es obligatoria (sin default, R-08) System.Management.Automation.RemoteException

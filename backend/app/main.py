@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import (
     auth,
+    auditoria,
     bloqueos,
     caja,
     cobros,
@@ -23,6 +24,7 @@ from app.api import (
     pacientes,
     prestaciones,
     presupuestos,
+    privacidad,
     profesionales,
     publico,
     ready,
@@ -30,6 +32,7 @@ from app.api import (
     reportes,
     sillones,
     turnos,
+    usuarios,
     webhooks,
 )
 from app.core import resources
@@ -62,6 +65,8 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(ready.router)
 app.include_router(auth.router)
+app.include_router(usuarios.router)
+app.include_router(auditoria.router)
 app.include_router(profesionales.router)
 app.include_router(sillones.router)
 app.include_router(prestaciones.router)
@@ -80,6 +85,7 @@ app.include_router(obras_sociales.router)
 app.include_router(turnos.router)
 app.include_router(lista_espera.router)
 app.include_router(publico.router)
+app.include_router(privacidad.router)
 app.include_router(ofertas.router)
 app.include_router(recordatorios.router)
 app.include_router(webhooks.router)

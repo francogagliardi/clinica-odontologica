@@ -308,6 +308,65 @@ La clínica ya puede consultar cuatro tableros de solo lectura: agenda y ocupaci
 - OpenSpec: `validate --strict` válido y sin warnings.
 - Pendiente: prueba visual final en la página completa y, si se desea, levantar el stack Compose cuando el puerto 15432 esté libre.
 
+## C-16 — Administración de acceso, auditoría, privacidad y demo
+
+> Cierre sin espera por change (decisión del usuario 2026-11-03): la aceptación funcional final se hace en la prueba de la página completa.
+
+### Qué se aplicó (resumen no técnico)
+
+- **Usuarios y roles:** el administrador puede dar de alta cuentas, asignar los cinco roles fijos, activar/desactivar cuentas y cambiar contraseñas desde `/usuarios`. El sistema nunca deja la clínica sin un administrador activo: si la operación dejaría cero administradores, responde “conflicto” y no cambia nada, incluso si dos personas lo intentan a la vez.
+- **Auditoría de solo lectura:** administrador y auditor pueden consultar en `/auditoria` quién hizo qué, cuándo, desde qué IP y dispositivo, con filtros por usuario, entidad, acción y fechas. Nadie puede editar ni borrar el historial desde la aplicación y consultarlo no agrega filas.
+- **Privacidad publicada:** `/privacidad` muestra la política versionada con su fecha y huella digital (hash). `/reservar` tiene un enlace informativo; **no** hay casilla de aceptación y la reserva no cambia.
+- **Enlace del paciente:** cada enlace de gestión muestra solo su turno y datos del catálogo (profesional, prestación, seña y políticas). No muestra nombre, DNI, teléfono ni email del paciente, y un enlace no permite ver otro turno.
+- **Demo completa:** el seed crea los cinco usuarios, el profesional, dos sillones, el catálogo, “OS Demo”, tres pacientes y tres turnos de la próxima jornada hábil. Se puede repetir sin duplicar ni cambiar contraseñas.
+- **Operación:** Compose levanta ocho servicios (API, SPA, base, Redis y los cuatro workers) y deja el respaldo en un perfil aparte. El respaldo se cifra con una passphrase obligatoria y se verifica con checksum y `pg_restore --list`.
+
+### Qué no cambia todavía
+
+- No hay sistema de diseño (C-17): las pantallas son funcionales.
+- No hay portal ni cuentas de paciente; el enlace sigue siendo por turno.
+- No se registra aceptación de la política de privacidad al reservar: el consentimiento clínico de prácticas invasivas sigue en C-11.
+- No hay purga automática de auditoría/exportaciones ni restauración automática de respaldos.
+- El alcance legal de la política requiere asesoramiento humano; el código no declara cumplimiento normativo.
+
+### Datos demo para probar
+
+- API/Swagger: `http://127.0.0.1:8000/docs`. SPA: `http://127.0.0.1:8080`.
+- Usuarios: `admin@clinica.test`, `odonto.demo@clinica.test`, `recepcion.demo@clinica.test`, `asistente.demo@clinica.test`, `auditor.demo@clinica.test`.
+- Contraseñas: las definidas en `backend/.env` (`SEED_ADMIN_PASSWORD` y `SEED_DEMO_PASSWORD`); no están en el repo.
+- Turnos demo: tres turnos en la próxima jornada hábil, 09:00/10:00/11:00, con Ana, Bruno y Carla Demo.
+
+### Pruebas manuales
+
+| # | Qué probar | Cómo | Esperado |
+|---|---|---|---|
+| 1 | Stack completo | `docker compose up -d --build` y `docker compose ps` | 8 servicios running/healthy (`backup` no arranca) |
+| 2 | Migraciones y seed | `docker compose exec -T api alembic upgrade head`; `... python -m app.seed` | head `0015`; conteos demo exactos |
+| 3 | Login de los cinco roles | Entrar a `/usuarios`, `/auditoria`, `/agenda` con cada usuario | 200 con el rol correcto |
+| 4 | Alta y roles | En `/usuarios`, crear una cuenta y asignarle roles | 201; aparece en la tabla con sus roles |
+| 5 | Último administrador | Intentar desactivar al único admin, o quitarse el rol | 409 visible; la cuenta no cambia |
+| 6 | Contraseña | Cambiar la contraseña de un usuario y probar login viejo/nuevo | Vieja 401; nueva 200 |
+| 7 | Auditoría | Abrir `/auditoria`, filtrar por acción y fecha, paginar | Tabla y total; sin botones de escritura |
+| 8 | Privacidad | Abrir `/privacidad` y el enlace desde `/reservar` | Versión, fecha, texto y hash; sin checkbox |
+| 9 | Reserva pública | Reservar un horario libre | 201; enlace de gestión; sin pedir privacidad |
+| 10 | Enlace del paciente | Abrir el enlace de gestión | Solo el turno y catálogo; sin nombre/DNI/teléfono/email |
+| 11 | Token usado/ajeno | Cancelar y recargar; probar otro token | 410; no revela ni modifica otro turno |
+| 12 | Exportación | Pedir exportación de consultorio como admin; esperar al worker | 202 → `lista`; ZIP descargable |
+| 13 | Respaldo | `docker compose --profile tools run --rm backup backup` y `... verify <archivo>` | `.dump.enc` + `.sha256`; verificación OK |
+| 14 | Respaldo fallido | Verificar con passphrase incorrecta y con un byte alterado | Falla sin imprimir contenido |
+| 15 | Seed idempotente | Reejecutar `python -m app.seed` | Mismos conteos; contraseñas intactas |
+| 16 | Roles de solo lectura | Login auditor: intentar crear usuario/turno/cobro/exportación | 403; sin filas nuevas |
+| 17 | Firma inválida de webhook | Enviar webhook sin firma o adulterada | 401; sin cambios |
+
+### Estado de verificación
+
+- Suite backend completa: **1341 tests en verde** (3 chunks paralelos; ver `docs/skills-mcp/evidencias/c-16/suite/` y `suite-resumen.txt`).
+- Frontend: **64 tests en verde**, `tsc --noEmit` y `npm run build` correctos (`docs/skills-mcp/evidencias/c-16/frontend/`).
+- Migración `0015`: ciclo `upgrade head → downgrade 0014_reportes → upgrade head` en base descartable; versión final `0015_admin_auditoria` y los 3 índices presentes.
+- Smoke: 8 servicios healthy; 5 logins; `/privacidad`; reserva 201; confirmación/cancelación por enlace; gestión sin PII; token usado 410; agenda; historia + evolución firmada; presupuesto aceptado; caja; cobro aprobado; comprobante ARCA `emitido`; reporte; usuarios; auditoría; exportación `lista`; workers `--once` OK; respaldo/verificación OK; seed reejecutado con conteos idénticos.
+- OpenSpec: 4/4 artefactos completos y `validate --strict` válido.
+- Pendiente: prueba visual/aceptación final sobre la página completa (decisión 2026-11-03).
+
 ## Prueba final de la página
 
 Cuando estén todos los changes:

@@ -1,0 +1,21 @@
+﻿== docker compose config --services ==
+db
+redis
+worker-reportes
+worker-whatsapp
+api
+frontend
+worker-arca
+worker-recordatorios
+== docker compose config --profiles ==
+tools
+== imagen backup ==
+postgres:16-alpine
+redis:7-alpine
+clinica-odontologica-worker-arca
+clinica-odontologica-backup
+clinica-odontologica-api
+clinica-odontologica-worker-recordatorios
+clinica-odontologica-worker-reportes
+clinica-odontologica-worker-whatsapp
+clinica-odontologica-frontend

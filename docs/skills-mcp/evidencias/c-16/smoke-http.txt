@@ -1,0 +1,13 @@
+﻿health=ok
+ready=ready db=up redis=up
+privacidad=v1-2026-11 hash=3ad05cd23a4f...
+catalogo prof=1 prest=5
+login administrador=200
+login odontologo=200
+login recepcionista=200
+login asistente=200
+login auditor=200
+auditoria total=5 filas=5
+reserva=201 estado=reservado turno=72889df0-3e52-46d4-b3ce-4b258f06372f
+gestion=200 turno=72889df0-3e52-46d4-b3ce-4b258f06372f sin_pii
+exportacion=202 id=8ebeee51-1273-42f0-9870-fdb0d831bbc6 estado=pendiente

@@ -1,9 +1,11 @@
 services:
   db:
     image: postgres:16-alpine
+    # The single .env carries the DB password, the API URL and every secret.
+    env_file:
+      - ./backend/.env
     environment:
       POSTGRES_USER: clinica
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme-generate-a-password}
       POSTGRES_DB: clinica
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -15,6 +17,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
@@ -28,16 +31,13 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    restart: unless-stopped
 
   api:
     build:
       context: ./backend
     env_file:
       - ./backend/.env
-    environment:
-      # Compose-local wiring by service DNS (overrides any hostnames in .env)
-      DATABASE_URL: postgresql+asyncpg://clinica:${POSTGRES_PASSWORD:-changeme-generate-a-password}@db:5432/clinica
-      REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
         condition: service_healthy
@@ -51,6 +51,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+    restart: unless-stopped
 
   frontend:
     build:
@@ -62,38 +63,79 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
 
   worker-recordatorios:
-    profiles: ["workers"]
     build:
       context: ./backend
     command: ["python", "-m", "app.workers", "recordatorios"]
     env_file:
       - ./backend/.env
-    environment:
-      DATABASE_URL: postgresql+asyncpg://clinica:${POSTGRES_PASSWORD:-changeme-generate-a-password}@db:5432/clinica
-      REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
 
   worker-whatsapp:
-    profiles: ["workers"]
     build:
       context: ./backend
     command: ["python", "-m", "app.workers", "whatsapp"]
     env_file:
       - ./backend/.env
-    environment:
-      DATABASE_URL: postgresql+asyncpg://clinica:${POSTGRES_PASSWORD:-changeme-generate-a-password}@db:5432/clinica
-      REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
+
+  worker-arca:
+    build:
+      context: ./backend
+    command: ["python", "-m", "app.workers", "arca"]
+    env_file:
+      - ./backend/.env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker-reportes:
+    build:
+      context: ./backend
+    command: ["python", "-m", "app.workers", "reportes"]
+    env_file:
+      - ./backend/.env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  backup:
+    build:
+      context: ./ops/backup
+    profiles: ["tools"]
+    env_file:
+      - ./backend/.env
+    command: ["backup"]
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   pgdata:

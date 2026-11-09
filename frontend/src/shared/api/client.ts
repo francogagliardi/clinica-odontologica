@@ -74,6 +74,19 @@ export async function patchJson(
   return parseResponse(response);
 }
 
+export async function putJson(
+  path: string,
+  body: unknown,
+  headers: Record<string, string> = {},
+): Promise<unknown> {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(body),
+  });
+  return parseResponse(response);
+}
+
 async function parseResponse(response: Response): Promise<unknown> {
   const text = await response.text();
   let body: unknown = text;

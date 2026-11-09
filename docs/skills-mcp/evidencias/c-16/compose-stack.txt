@@ -1,0 +1,18 @@
+﻿== compose services ==
+redis
+db
+worker-whatsapp
+api
+frontend
+worker-arca
+worker-recordatorios
+worker-reportes
+== compose ps ==
+api running healthy
+db running healthy
+frontend running healthy
+redis running healthy
+worker-arca running unhealthy
+worker-recordatorios running unhealthy
+worker-reportes running unhealthy
+worker-whatsapp running unhealthy

@@ -1,0 +1,6 @@
+﻿backup=/backups/clinica-20261108T232007Z.dump.enc exists=True
+verify_ok_exit=0
+verify_wrong_pass_exit=1
+verify_altered_exit=1
+verify_restored_exit=0
+plain_create_table=False plain_ana_demo=False

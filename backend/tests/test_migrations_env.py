@@ -41,7 +41,7 @@ def test_single_head_revision() -> None:
     config = Config(str(_BACKEND_DIR / "alembic.ini"))
     config.set_main_option("script_location", str(_BACKEND_DIR / "alembic"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["0014_reportes"]
+    assert script.get_heads() == ["0015_admin_auditoria"]
 
 
 def test_c02_revision_chains_from_baseline() -> None:

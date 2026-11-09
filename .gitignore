@@ -26,3 +26,6 @@ Thumbs.db
 
 # Local compose override
 docker-compose.override.yml
+
+# Encrypted backups (never commit patient data or passphrases)
+backups/

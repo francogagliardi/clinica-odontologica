@@ -125,7 +125,7 @@ def test_c15_upgrade_crea_exportaciones_con_checks_e_indices(engine) -> None:
 
     async def scenario() -> None:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0014_reportes"
+        assert snapshot["version"] == "0015_admin_auditoria"
         assert "exportaciones" in snapshot["tables"]
         assert snapshot["tables"] == set(Base.metadata.tables) | {
             "alembic_version"
@@ -373,7 +373,7 @@ def test_c15_downgrade_y_upgrade_restaura_solo_su_tabla(
 
     async def after_upgrade() -> None:
         snapshot = await _snapshot(engine)
-        assert snapshot["version"] == "0014_reportes"
+        assert snapshot["version"] == "0015_admin_auditoria"
         assert "exportaciones" in snapshot["tables"]
         checks: set[str] = snapshot["checks"]  # type: ignore[assignment]
         assert _CHECKS_EXPORTACIONES <= checks

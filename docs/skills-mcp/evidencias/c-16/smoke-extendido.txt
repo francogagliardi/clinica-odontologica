@@ -1,0 +1,13 @@
+﻿confirmar=200 estado=confirmado
+cancelar=200 estado=cancelado sena_perdida=False
+token_usado=410
+agenda=200 turnos=10
+historia=200 id=de009e6a-1829-42e5-9e78-b71b1d50c56e
+evolucion=201 firmada=True
+presupuesto=201 id=83d91b2d-e2f0-44e5-9e99-cb8ab8ce2bbd estado=aceptado
+caja=201 estado=abierta
+cobro=201 estado=aprobado
+comprobante=1 estado=pendiente numero=1
+comprobante_arca=emitido cae=70028068419117
+reporte_agenda=200 turnos=10
+usuarios=5 auditoria_total=30

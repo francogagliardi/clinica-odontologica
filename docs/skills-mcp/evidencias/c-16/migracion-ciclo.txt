@@ -1,0 +1,27 @@
+﻿INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_base, Baseline marker revision (C-01): intentionally creates NO domain tables.
+INFO  [alembic.runtime.migration] Running upgrade 0001_base -> 0002_core_models_seguridad, Core security models (C-02): identity, roles and append-only audit.
+INFO  [alembic.runtime.migration] Running upgrade 0002_core_models_seguridad -> 0003_tokens_un_solo_uso, Tokens de un solo uso para enlaces p├║blicos (C-03, RN-NO-03).
+INFO  [alembic.runtime.migration] Running upgrade 0003_tokens_un_solo_uso -> 0004_recursos_agendables, Agenda supply and commercial catalogue (C-04).
+INFO  [alembic.runtime.migration] Running upgrade 0004_recursos_agendables -> 0005_pacientes_cobertura_base, Patients and social-security agreements (C-05).
+INFO  [alembic.runtime.migration] Running upgrade 0005_pacientes_cobertura_base -> 0006_turnos_anti_solapamiento, Appointments with database-level anti-overlap (C-06).
+INFO  [alembic.runtime.migration] Running upgrade 0006_turnos_anti_solapamiento -> 0007_reserva_publica, Public booking: deposit state on appointments (C-07).
+INFO  [alembic.runtime.migration] Running upgrade 0007_reserva_publica -> 0008_whatsapp_recordatorios, Reminders and WhatsApp messages (C-09).
+INFO  [alembic.runtime.migration] Running upgrade 0008_whatsapp_recordatorios -> 0009_lista_espera, Waiting list with atomic retention of a freed slot (C-10).
+INFO  [alembic.runtime.migration] Running upgrade 0009_lista_espera -> 0010_historia_clinica, Clinical record: history, evolutions, odontogram, attachments, consents (C-11).
+INFO  [alembic.runtime.migration] Running upgrade 0010_historia_clinica -> 0011_presupuestos, Budgets and their lines (C-12).
+INFO  [alembic.runtime.migration] Running upgrade 0011_presupuestos -> 0012_caja_cobros, Cash register, payments and cash movements (C-13).
+INFO  [alembic.runtime.migration] Running upgrade 0012_caja_cobros -> 0013_facturacion_arca, Billing receipts, ARCA issuance and insurance settlements (C-14).
+INFO  [alembic.runtime.migration] Running upgrade 0013_facturacion_arca -> 0014_reportes, Exportation jobs and their durable ZIP artifact (C-15, design D3/D7/D12).
+INFO  [alembic.runtime.migration] Running upgrade 0014_reportes -> 0015_admin_auditoria, Audit viewer indexes (C-16, design D11).
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running downgrade 0015_admin_auditoria -> 0014_reportes, Audit viewer indexes (C-16, design D11).
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0014_reportes -> 0015_admin_auditoria, Audit viewer indexes (C-16, design D11).
+  File "<string>", line 1
+    import
+          ^
+SyntaxError: invalid syntax

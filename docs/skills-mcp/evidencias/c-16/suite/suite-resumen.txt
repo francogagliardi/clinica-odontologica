@@ -1,0 +1,5 @@
+﻿Suite backend completa C-16 ejecutada en 3 chunks paralelos sobre bases descartables c16_suite_a/b/c.
+chunk A: 380 passed (30:39)
+chunk B: 400 passed (29:10)
+chunk C: 561 passed (25:43)
+TOTAL: 1341 passed, 0 failed (coincide con 1341 tests colectados).

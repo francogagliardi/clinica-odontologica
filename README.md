@@ -27,7 +27,7 @@ MVP definido en 5 épicas (US-001–US-041) con 26 reglas de negocio. Detalle en
 | ORM / DB | SQLAlchemy 2.x + PostgreSQL 16 |
 | Colas / jobs | Redis 7 (`whatsapp:send`, `recordatorios:due`, `arca:emitir`) |
 | Frontend | React + TypeScript + Vite (SPA) |
-| Contenedores | Docker / Docker Compose (`api`, `frontend`, `db`, `redis`) |
+| Contenedores | Docker / Docker Compose (`api`, `frontend`, `db`, `redis` + workers `recordatorios`, `whatsapp`, `arca`, `reportes`; `backup` en perfil `tools`) |
 | Integraciones v1 | WhatsApp Business API, Mercado Pago y ARCA en sandbox/homologación |
 
 ## Quickstart (demo local)
@@ -36,18 +36,27 @@ Requisitos: Docker y Docker Compose.
 
 ```bash
 cp backend/.env.example backend/.env
-docker compose up --build
+# Editá backend/.env: JWT_SECRET, POSTGRES_PASSWORD, SEED_ADMIN_PASSWORD,
+# SEED_DEMO_PASSWORD y BACKUP_PASSPHRASE (todos obligatorios, sin defaults).
+docker compose up -d --build
+docker compose exec -T api alembic upgrade head
+docker compose exec -T api python -m app.seed
 ```
 
 | Servicio | URL |
 |---|---|
 | Frontend | http://127.0.0.1:8080 |
-| API | http://127.0.0.1:8000 |
+| API / Swagger | http://127.0.0.1:8000/docs |
 | Healthcheck | http://127.0.0.1:8000/health |
 | PostgreSQL | 127.0.0.1:5432 |
 | Redis | 127.0.0.1:6379 |
 
-La API expone `GET /health` (y readiness) para los healthchecks de Compose. Los secretos van solo por variables de entorno (`.env`, gitignored); nunca hay valores reales en el repo.
+El stack por defecto levanta **ocho servicios** (base + cuatro workers). El
+respaldo cifrado no arranca con la demo: se ejecuta con `--profile tools`. Ver
+el runbook completo —túnel, webhooks, credenciales demo, respaldo/verificación y
+flujo demo verde— en [docs/demo.md](docs/demo.md). La API expone `GET /health`
+(y readiness) para los healthchecks de Compose. Los secretos van solo por
+variables de entorno (`.env`, gitignored); nunca hay valores reales en el repo.
 
 ## Estructura del repo
 
@@ -55,10 +64,11 @@ La API expone `GET /health` (y readiness) para los healthchecks de Compose. Los 
 .
 ├── backend/            # FastAPI (app/, Dockerfile, .env.example, Alembic)
 ├── frontend/           # React + TS + Vite (src/, Dockerfile, .env.example)
-├── docker-compose.yml  # api + frontend + db (PostgreSQL) + redis
+├── docker-compose.yml  # 8 servicios: api, frontend, db, redis + 4 workers
+├── ops/backup/         # Imagen de herramientas: pg_dump + openssl + backup.sh
 ├── knowledge-base/     # Fuente de verdad del dominio (12 archivos)
 ├── openspec/           # Changes spec-driven (proposal/design/specs/tasks)
-├── docs/               # Discovery, documentación de apoyo y guía de skills/MCP
+├── docs/               # Discovery, runbook de demo, documentación de apoyo
 ├── CHANGES.md          # Roadmap: 16 changes C-01–C-16 en 7 fases
 └── AGENTS.md           # Reglas duras R-01–R-14 para agentes
 ```
@@ -68,6 +78,7 @@ La API expone `GET /health` (y readiness) para los healthchecks de Compose. Los 
 - [knowledge-base/](knowledge-base/) — dominio, reglas de negocio, arquitectura e integraciones.
 - [CHANGES.md](CHANGES.md) — secuencia de implementación (dependencias, gates y camino crítico).
 - [openspec/](openspec/) — specs activas y archivo de changes completados.
+- [docs/demo.md](docs/demo.md) — runbook de demo local: variables, 8 servicios, seed, túnel, respaldo y flujo verde.
 - [docs/](docs/) — discovery (`docs/discovery/`), material de apoyo y `docs/skills-mcp/` (ficha de investigación, informe de aplicación y evidencias).
 - [AGENTS.md](AGENTS.md) — stack, skills por rol y reglas duras R-01–R-14.
 
@@ -103,9 +114,9 @@ Requisito: la base demo del Compose levantada (`docker compose up -d db`) y Dock
 
 ## Estado
 
-- ✅ `C-01 foundation-setup` completado y archivado (`openspec/changes/archive/2026-10-13-c-01-foundation-setup/`): scaffolding, Compose con 4 servicios, FastAPI con health check, shell Vite, `.env.example`, Alembic init y colas Redis reservadas.
-- 🟡 `C-02 core-models-seguridad` **preparado, no implementado**: proposal, design, specs y tasks validados (`openspec validate --strict`), auditados con la skill propia. Pendiente de aprobación de las decisiones de `design.md` antes de codificar.
-- ⬜ `C-03`–`C-16` pendientes según [CHANGES.md](CHANGES.md). Camino crítico: `C-01 → C-02 → C-03 → C-04 → C-06 → C-09 → C-13 → C-14`.
+- ✅ **C-01 a C-15** implementados y verificados por change (suite, migraciones y smoke guardados en `docs/skills-mcp/evidencias/`).
+- 🟡 **C-16 admin-roles-auditoria-deploy** implementado (acceso/roles/auditoría, privacidad publicada, seed completo, Compose con 8 servicios, respaldo cifrado y runbook). Cierre verificado: suite completa, ciclo de migración `0015`, smoke de los 8 servicios y respaldo/verificación. Pendiente: aceptación funcional final sobre la página completa (decisión del 2026-11-03).
+- 📘 Runbook de demo: [docs/demo.md](docs/demo.md). Roadmap y dependencias: [CHANGES.md](CHANGES.md).
 
 ## Autor y materia
 

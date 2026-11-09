@@ -129,6 +129,26 @@ describe("ReservaPage", () => {
     expect(screen.getByRole("link", { name: /Gestionar mi turno/ })).toBeTruthy();
   });
 
+  it("enlaza la política de privacidad sin checkbox ni bloqueo", async () => {
+    mockFetch([
+      (url) =>
+        url.endsWith("/reservar/demo") ? jsonResponse(CATALOGO) : undefined,
+      (url) =>
+        url.includes("/reservar/demo/disponibilidad")
+          ? jsonResponse(SLOTS)
+          : undefined,
+    ]);
+    render(<ReservaPage />);
+    await screen.findByText(/Consultorio Demo/);
+
+    const enlace = screen.getByRole("link", { name: /privacidad/i });
+    expect(enlace.getAttribute("href")).toBe("/privacidad");
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByText(/acepto/i)).toBeNull();
+    // The reservation form is still available without any acceptance step.
+    expect(screen.getByRole("button", { name: "Reservar" })).toBeTruthy();
+  });
+
   it("muestra el error de la API tal cual", async () => {
     mockFetch([
       (url) =>

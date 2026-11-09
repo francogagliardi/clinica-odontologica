@@ -23,7 +23,6 @@ from app.api.deps import (
     get_settings,
     get_uow,
     reject_unexpected_query,
-    require_role,
 )
 from app.core.security import (
     create_access_token,
@@ -175,20 +174,3 @@ async def read_me(
 ) -> UsuarioAuthResponse:
     """Return the identity and current roles of the Bearer token owner."""
     return _to_auth_response(current_user)
-
-
-@router.get(
-    "",
-    response_model=list[UsuarioAuthResponse],
-    summary="Listar usuarios activos (solo administrador)",
-    dependencies=[Depends(reject_unexpected_query)],
-)
-async def list_usuarios(
-    _current_admin: Annotated[
-        Usuario, Depends(require_role("administrador"))
-    ],
-    uow: Annotated[UnitOfWork, Depends(get_uow)],
-) -> list[UsuarioAuthResponse]:
-    """RBAC smoke endpoint: only an administrator reaches this handler."""
-    users = await uow.usuarios.list()
-    return [_to_auth_response(user) for user in users]

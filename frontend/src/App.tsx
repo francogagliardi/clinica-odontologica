@@ -1,9 +1,12 @@
 import { HomePage } from "./pages/HomePage";
 import { AgendaPage } from "./pages/AgendaPage";
+import { AuditoriaPage } from "./pages/AuditoriaPage";
 import { GestionTurnoPage } from "./pages/GestionTurnoPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { PrivacidadPage } from "./pages/PrivacidadPage";
 import { ReportesPage } from "./pages/ReportesPage";
 import { ReservaPage } from "./pages/ReservaPage";
+import { UsuariosPage } from "./pages/UsuariosPage";
 
 const GESTION_PREFIX = "/reservar/gestion/";
 
@@ -18,6 +21,15 @@ export function App(): React.JSX.Element {
   }
   if (pathname === "/reportes") {
     return <ReportesPage />;
+  }
+  if (pathname === "/usuarios") {
+    return <UsuariosPage />;
+  }
+  if (pathname === "/auditoria") {
+    return <AuditoriaPage />;
+  }
+  if (pathname === "/privacidad") {
+    return <PrivacidadPage />;
   }
   if (pathname === "/reservar") {
     return <ReservaPage />;

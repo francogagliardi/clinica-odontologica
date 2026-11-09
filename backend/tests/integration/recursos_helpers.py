@@ -29,7 +29,14 @@ EMAIL_POR_ROL = {
 
 async def seed_demo(session_factory: async_sessionmaker[AsyncSession]) -> None:
     async with session_factory() as session, session.begin():
-        await run_seed(session, "demo-secret-123")
+        # Focused fixtures build their own agenda/professional/cast: keep the
+        # minimal legacy seed without the C-16 demo elenco and appointments.
+        await run_seed(
+            session,
+            "demo-secret-123",
+            "demo-secret-456",
+            incluir_elenco=False,
+        )
 
 
 async def consultorio_demo_id(
