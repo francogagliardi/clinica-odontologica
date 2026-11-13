@@ -2,13 +2,9 @@
 
 SaaS para consultorios y clínicas dentales argentinas: agenda, historia clínica y administración en una sola plataforma.
 
-## 🎬 Video del proyecto
+## 🎬 Video del TPI
 
-[![Video de presentación / demo del proyecto](https://img.youtube.com/vi/z9Po8tLB0S8/maxresdefault.jpg)](https://youtu.be/z9Po8tLB0S8)
-
-👉 [Ver video de presentación / demo del proyecto](https://youtu.be/z9Po8tLB0S8)
-
-[![YouTube](https://img.shields.io/badge/YouTube-Ver_video-red?logo=youtube)](https://youtu.be/z9Po8tLB0S8)
+👉 Ver video explicativo y demostración: `https://...` (se publica junto con la entrega).
 
 ## Qué es
 
@@ -69,7 +65,7 @@ variables de entorno (`.env`, gitignored); nunca hay valores reales en el repo.
 ├── knowledge-base/     # Fuente de verdad del dominio (12 archivos)
 ├── openspec/           # Changes spec-driven (proposal/design/specs/tasks)
 ├── docs/               # Discovery, runbook de demo, documentación de apoyo
-├── CHANGES.md          # Roadmap: 16 changes C-01–C-16 en 7 fases
+├── CHANGES.md          # Roadmap: 17 changes (C-01–C-16 + C-17 de diseño)
 └── AGENTS.md           # Reglas duras R-01–R-14 para agentes
 ```
 
@@ -114,8 +110,10 @@ Requisito: la base demo del Compose levantada (`docker compose up -d db`) y Dock
 
 ## Estado
 
-- ✅ **C-01 a C-15** implementados y verificados por change (suite, migraciones y smoke guardados en `docs/skills-mcp/evidencias/`).
-- 🟡 **C-16 admin-roles-auditoria-deploy** implementado (acceso/roles/auditoría, privacidad publicada, seed completo, Compose con 8 servicios, respaldo cifrado y runbook). Cierre verificado: suite completa, ciclo de migración `0015`, smoke de los 8 servicios y respaldo/verificación. Pendiente: aceptación funcional final sobre la página completa (decisión del 2026-11-03).
+- ✅ **C-01 a C-16** implementados, verificados, archivados y pusheados (suite, migraciones y smoke guardados en `docs/skills-mcp/evidencias/`).
+- ✅ **C-17 frontend-design-system** implementado y archivado: sistema de diseño completo, accesibilidad WCAG 2.2 AA y responsive de 320 a 1280 px.
+- ✅ **Roadmap del TPI completo**: 17 changes en `openspec/changes/archive/`, con **1341 tests de backend y 199 de frontend** en verde, typecheck y build.
+- 🔲 Fuera del alcance del TPI: épica 6 (US-050–US-059), posterior al MVP.
 - 📘 Runbook de demo: [docs/demo.md](docs/demo.md). Roadmap y dependencias: [CHANGES.md](CHANGES.md).
 
 ## Autor y materia

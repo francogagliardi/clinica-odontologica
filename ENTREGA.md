@@ -1,37 +1,47 @@
-# ENTREGA — TP «Integrar una skill propia y un MCP»
+# ENTREGA — TPI Metodología I
 
 ## Integrantes
 
 | Integrante | Participación |
 |---|---|
-| Franco Nicolás Gagliardi | Investigación, creación e integración de la skill, configuración y verificación del MCP, preparación de C-02, documentación y evidencias |
+| Franco Nicolás Gagliardi | Fundación, los 17 changes del roadmap, skill propia, integración del MCP, pruebas, sistema de diseño y documentación |
 
-Equipo individual (el TP permite hasta tres integrantes). Materia: Metodología I.
+Equipo individual (la consigna admite hasta tres integrantes). Materia: Metodología I.
+
+## Video
+
+👉 Ver video explicativo y demostración: `https://...` (se publica junto con la entrega).
 
 ## Repositorio
 
 https://github.com/francogagliardi/clinica-odontologica
 
-- Change preparado: `openspec/changes/c-02-core-models-seguridad/` (pendiente, **no implementado ni archivado**).
-- Skill propia: `.agents/skills/spec-scenario-auditor/SKILL.md`.
+- Roadmap completo: `C-01` a `C-17`, archivados en `openspec/changes/archive/`.
+- Artefactos SDD de cada change: `proposal.md`, `design.md`, specs con escenarios y `tasks.md` con su verificación.
+- Skill propia: `.agents/skills/spec-scenario-auditor/SKILL.md`, registrada en `.atl/skill-registry.md`.
 - Guía reproducible del MCP: `docs/skills-mcp/mcp.md`.
+- Documentación del sistema de diseño: `docs/design-system.md`.
+- Runbook de demo local: `docs/demo.md`.
+
+## Alcance presentado
+
+- **17 changes completos, probados y archivados**, muy por encima del mínimo de dos por integrante.
+- **1341 tests de backend y 199 de frontend** en verde, más typecheck y build.
+- Sistema levantado con Docker Compose: API, frontend, PostgreSQL, Redis y cuatro workers.
+- Datos ficticios e integraciones en modo de prueba: WhatsApp en capa de prueba, Mercado Pago en sandbox y ARCA en homologación.
+- Fuera del alcance del TPI: épica 6 (US-050–US-059), posterior al MVP.
 
 ## Commit de entrega
 
-`25c9b63` — `docs(changes): prepare C-02 core-models-seguridad with 32 verifiable scenarios` (contiene la totalidad de los artefactos del TP). Historial del proceso:
-
-| Commit | Qué muestra |
-|---|---|
-| `f2b6be7` | Alta de la skill propia y su registro en la fundación |
-| `52369e1` | Integración y documentación reproducible del MCP |
-| `25c9b63` | Change C-02 preparado, evidencias de auditoría y documentos de la entrega |
+El último commit de `main` incluye este documento y el estado final del repositorio. El historial completo del proceso está en `git log`.
 
 ## Documentos de la entrega
 
-- Ficha de investigación: [`docs/skills-mcp/investigacion.md`](docs/skills-mcp/investigacion.md)
+- Ficha de investigación de skill y MCP: [`docs/skills-mcp/investigacion.md`](docs/skills-mcp/investigacion.md)
 - Informe de aplicación: [`docs/skills-mcp/aplicacion.md`](docs/skills-mcp/aplicacion.md)
 - Evidencias: [`docs/skills-mcp/evidencias/`](docs/skills-mcp/evidencias/)
 - Guía del MCP: [`docs/skills-mcp/mcp.md`](docs/skills-mcp/mcp.md)
+- Sistema de diseño: [`docs/design-system.md`](docs/design-system.md)
 
 ## Datos y credenciales
 
