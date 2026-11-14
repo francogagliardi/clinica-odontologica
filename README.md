@@ -4,7 +4,7 @@ SaaS para consultorios y clínicas dentales argentinas: agenda, historia clínic
 
 ## 🎬 Video del TPI
 
-👉 Ver video explicativo y demostración: `https://...` (se publica junto con la entrega).
+👉 [Ver video explicativo y demostración](https://youtu.be/9mHFTvMtlB0)
 
 ## Qué es
 

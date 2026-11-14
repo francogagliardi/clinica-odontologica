@@ -10,7 +10,7 @@ Equipo individual (la consigna admite hasta tres integrantes). Materia: Metodolo
 
 ## Video
 
-👉 Ver video explicativo y demostración: `https://...` (se publica junto con la entrega).
+👉 [Ver video explicativo y demostración](https://youtu.be/9mHFTvMtlB0)
 
 ## Repositorio
 
